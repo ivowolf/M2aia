@@ -24,7 +24,7 @@ See LICENSE.txt or https://www.github.com/jtfcordes/m2aia for details.
 #include <m2SpectrumImage.h>
 
 #include "m2ChartView.h"
-#include "ui_m2Spectrum.h"
+#include "ui_m2SpectrumView.h"
 #include "m2SeriesDataProvider.h"
 
 #include <qlegendmarker.h>
@@ -73,7 +73,7 @@ namespace itk{
 
 
 
-class m2Spectrum : public QmitkAbstractView
+class m2SpectrumView : public QmitkAbstractView
 {
   // this is needed for all Qt objects that should have a Qt meta-object
   // (everything that derives from QObject and wants to have signal/slots)
@@ -82,7 +82,7 @@ class m2Spectrum : public QmitkAbstractView
 
 public:
   static const std::string VIEW_ID;
-  ~m2Spectrum() {}
+  ~m2SpectrumView() {}
 
 protected:
   void CreateQtPartControl(QWidget *parent) override;

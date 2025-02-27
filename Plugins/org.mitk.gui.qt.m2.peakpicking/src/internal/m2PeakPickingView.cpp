@@ -550,10 +550,12 @@ void m2PeakPickingView::OnStartPeakPickingOverview()
 
     targetData->SetProperty("m2aia.image.pixel.count", mitk::IntProperty::New(image->GetNumberOfValidPixels()));
     targetData->SetProperty("m2aia.helper.spectrum.xaxis.count", mitk::IntProperty::New(targetData->GetIntervals().size()));
-    targetNode->Modified();
+    
 
     if (!targetNodeAlreadyInDataStorage)
       GetDataStorage()->Add(targetNode, parentNode);
+    
+    targetNode->InvokeEvent(m2::IntervalVectorModified());
   }
 }
 
@@ -650,6 +652,10 @@ void m2PeakPickingView::OnStartPeakPickingImage()
 
     if (!targetNodeAlreadyInDataStorage)
       GetDataStorage()->Add(targetNode, imageNode);
+    
+
+    
+    // targetData->RequestUpdate();
   }
 }
 

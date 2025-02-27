@@ -14,7 +14,7 @@ See LICENSE.txt for details.
 
 ===================================================================*/
 
-#include "m2Spectrum.h"
+#include "m2SpectrumView.h"
 
 #include <iostream>
 #include <memory>
@@ -46,15 +46,16 @@ See LICENSE.txt for details.
 // M2aia includes
 #include <m2ImzMLSpectrumImage.h>
 #include <m2SpectrumImage.h>
+#include <m2CoreCommon.h>
 #include <m2UIUtils.h>
 #include <signal/m2PeakDetection.h>
 
 // internal includes
 #include "m2SeriesDataProvider.h"
 
-const std::string m2Spectrum::VIEW_ID = "org.mitk.views.m2.spectrum";
+const std::string m2SpectrumView::VIEW_ID = "org.mitk.views.m2.spectrum";
 
-void m2Spectrum::DrawSelectedArea()
+void m2SpectrumView::DrawSelectedArea()
 {
   if (!m_xAxis)
     return;
@@ -105,7 +106,7 @@ void m2Spectrum::DrawSelectedArea()
   UpdateSelectedArea();
 }
 
-void m2Spectrum::UpdateSelectedArea()
+void m2SpectrumView::UpdateSelectedArea()
 {
   if (m_Chart->series().empty())
     return;
@@ -190,7 +191,7 @@ void m2Spectrum::UpdateSelectedArea()
   }
 }
 
-void m2Spectrum::OnMousePress(QPointF pos, qreal mz, qreal intValue, Qt::MouseButton button, Qt::KeyboardModifiers mod)
+void m2SpectrumView::OnMousePress(QPointF pos, qreal mz, qreal intValue, Qt::MouseButton button, Qt::KeyboardModifiers mod)
 {
   Q_UNUSED(pos)
   if (mod & Qt::AltModifier && !m_RangeSelectionStarted)
@@ -214,18 +215,18 @@ void m2Spectrum::OnMousePress(QPointF pos, qreal mz, qreal intValue, Qt::MouseBu
     }
   }
 
-  UpdateSelectedArea();
-  // MITK_INFO("m2Spectrum::OnMousePress") << "Mouse Pressed";
+  // UpdateSelectedArea();
+  // MITK_INFO("m2SpectrumView::OnMousePress") << "Mouse Pressed";
 }
 
-void m2Spectrum::OnMassRangeChanged(qreal x, qreal tol)
+void m2SpectrumView::OnMassRangeChanged(qreal x, qreal tol)
 {
   SetSelectedAreaStartX(x - tol);
   SetSelectedAreaEndX(x + tol);
   DrawSelectedArea();
 }
 
-// void m2Spectrum::OnSpectrumArtifactChanged(const mitk::DataNode * node, m2::SpectrumType type){
+// void m2SpectrumView::OnSpectrumArtifactChanged(const mitk::DataNode * node, m2::SpectrumType type){
 //   if(dynamic_cast<m2::SpectrumImage *>(node->GetData())){
 //     if(type == m2::SpectrumType::None){
 //       if(m_DataProvider[node]->Exists("Peaks")){
@@ -235,24 +236,29 @@ void m2Spectrum::OnMassRangeChanged(qreal x, qreal tol)
 //   }
 // }
 
-void m2Spectrum::OnDataModified(const itk::Object *caller, const itk::EventObject &)
+void m2SpectrumView::OnDataModified(const itk::Object *caller, const itk::EventObject &)
 {
+  MITK_INFO << "Test";
   if (auto node = dynamic_cast<const mitk::DataNode *>(caller))
   {
-    if (dynamic_cast<m2::IntervalVector *>(node->GetData()))
+    if (!node->IsVisible(nullptr))
+      return;
+
+    if (auto intervalVector = dynamic_cast<m2::IntervalVector *>(node->GetData()))
     {
       auto provider = m_DataProvider[node];
-      provider->Update();
-      provider->UpdateBoundaries(m_LocalMinimumX, m_LocalMaximumX);
-      UpdateCurrentMinMaxY();
+      provider->SetData(intervalVector);
+      provider->InitializeLoDData();
       UpdateGlobalMinMaxValues();
+      UpdateCurrentMinMaxY();
       DrawSelectedArea();
-      AutoZoomUseLocalExtremaY();
+      provider->GenerateSeriesDataWithinRange(m_LocalMinimumX, m_LocalMaximumX);
+      m_Controls.chartView->repaint();
     }
   }
 }
 
-// void m2Spectrum::OnDataModified(const itk::Object *caller, const itk::EventObject &)
+// void m2SpectrumView::OnDataModified(const itk::Object *caller, const itk::EventObject &)
 // {
 //   if (auto node = dynamic_cast<const mitk::DataNode *>(caller))
 //   {
@@ -283,7 +289,7 @@ void m2Spectrum::OnDataModified(const itk::Object *caller, const itk::EventObjec
 //   }
 // }
 
-void m2Spectrum::OnPropertyListChanged(const itk::Object *caller, const itk::EventObject &)
+void m2SpectrumView::OnPropertyListChanged(const itk::Object *caller, const itk::EventObject &)
 {
   if (auto node = dynamic_cast<const mitk::DataNode *>(caller))
   {
@@ -348,7 +354,7 @@ void m2Spectrum::OnPropertyListChanged(const itk::Object *caller, const itk::Eve
   }
 }
 
-void m2Spectrum::NodeAdded(const mitk::DataNode *node)
+void m2SpectrumView::NodeAdded(const mitk::DataNode *node)
 {
   if (!node)
     return;
@@ -359,6 +365,8 @@ void m2Spectrum::NodeAdded(const mitk::DataNode *node)
 
   if (auto intervals = dynamic_cast<m2::IntervalVector *>(node->GetData()))
   {
+    MITK_INFO << "NodeAdded: " << node->GetName();
+
     if (m_DataProvider.empty())
     {
       m_GlobalMinimumX = m_LocalMinimumX = intervals->GetXMean().front();
@@ -372,56 +380,54 @@ void m2Spectrum::NodeAdded(const mitk::DataNode *node)
       isVisible = false;
 
     auto provider = std::make_shared<m2::SeriesDataProvider>();
-    provider->Initialize(intervals);
+    provider->SetData(intervals);
+    provider->InitializeSeries();
+    provider->InitializeLoDData();
+    
     provider->GetSeries()->setName(node->GetName().c_str());
     provider->GetSeries()->setVisible(isVisible);
-
+    
     m_DataProvider[node] = provider;
     m_NodeRelatedGraphicItems[node] = new QGraphicsItemGroup();
     m_Chart->scene()->addItem(m_NodeRelatedGraphicItems[node]);
     m_Chart->addSeries(provider->GetSeries());
-
+    
     m_Chart->createDefaultAxes();
     m_xAxis = static_cast<QValueAxis *>(m_Chart->axes(Qt::Horizontal).front());
     m_yAxis = static_cast<QValueAxis *>(m_Chart->axes(Qt::Vertical).front());
-    QObject::connect(m_xAxis, SIGNAL(rangeChanged(qreal, qreal)), this, SLOT(OnRangeChangedAxisX(qreal, qreal)));
     QObject::connect(m_yAxis, SIGNAL(rangeChanged(qreal, qreal)), this, SLOT(OnRangeChangedAxisY(qreal, qreal)));
-
-    auto onPropertyListModifiedCommand = itk::NodeMemberCommand<m2Spectrum>::New();
+    QObject::connect(m_xAxis, SIGNAL(rangeChanged(qreal, qreal)), this, SLOT(OnRangeChangedAxisX(qreal, qreal)));
+    
+    auto onPropertyListModifiedCommand = itk::NodeMemberCommand<m2SpectrumView>::New();
     onPropertyListModifiedCommand->SetNode(node);
-    onPropertyListModifiedCommand->SetCallbackFunction(this, &m2Spectrum::OnPropertyListChanged);
+    onPropertyListModifiedCommand->SetCallbackFunction(this, &m2SpectrumView::OnPropertyListChanged);
     node->GetPropertyList()->AddObserver(itk::ModifiedEvent(), onPropertyListModifiedCommand);
-
-    auto onDataModifiedCommand = itk::MemberCommand<m2Spectrum>::New();
-    onDataModifiedCommand->SetCallbackFunction(this, &m2Spectrum::OnDataModified);
-    node->AddObserver(itk::ModifiedEvent(), onDataModifiedCommand);
-
+    
+    auto onDataModifiedCommand = itk::NodeMemberCommand<m2SpectrumView>::New();
+    onDataModifiedCommand->SetNode(node);
+    node->AddObserver(m2::IntervalVectorModified(), onDataModifiedCommand);
+    
     OnAxisXTicksChanged(m_AxisTicks[0]);
     OnAxisYTicksChanged(m_AxisTicks[1]);
-
-    UpdateAllSeries();
-
-    UpdateGlobalMinMaxValues();
-    UpdateCurrentMinMaxY();
-
-    // OnResetView();
-    // AutoZoomUseLocalExtremaY();
-    if (m_xAxis)
-      m_xAxis->setRange(m_LocalMinimumX, m_LocalMaximumX);
-    if (m_yAxis)
-      m_yAxis->setRange(m_LocalMinimumY, m_LocalMaximumY * 1.1);
-    m_Controls.chartView->repaint();
-
-    // MITK_INFO << "SpectrumView: " << node->GetName();
-    // m2::DefaultNodeProperties(node, false);
+    
+    m2::DefaultNodeProperties(node, false);
     node->GetPropertyList()->Modified();
     node->Modified();
+    
+    UpdateGlobalMinMaxValues();  
+    onDataModifiedCommand->SetCallbackFunction(this, &m2SpectrumView::OnDataModified);
+    m_xAxis->setRange(m_LocalMinimumX, m_LocalMaximumX); // triggers OnRangeChangedAxisX
+    m_Controls.chartView->repaint();
+    
+    // node->InvokeEvent(m2::IntervalVectorModified());
+    MITK_INFO << "NodeAdded: " << node->GetName() << " DONE!";
+    provider->GenerateSeriesDataWithinRange();
 
     // UpdateTitles(node);
   }
 }
 
-void m2Spectrum::OnMouseMove(
+void m2SpectrumView::OnMouseMove(
   QPointF pos, qreal mz, qreal intValue, Qt::MouseButton /*button*/, Qt::KeyboardModifiers /*mod*/)
 {
   const auto chart = m_Controls.chartView->chart();
@@ -455,12 +461,9 @@ void m2Spectrum::OnMouseMove(
     }
   }
 
-  // UpdateSelectedArea();
-
-  // MITK_INFO("m2Spectrum::OnMouseMove") << "Mouse Pressed";
 }
 
-void m2Spectrum::OnMouseRelease(
+void m2SpectrumView::OnMouseRelease(
   QPointF pos, qreal mz, qreal intValue, Qt::MouseButton button, Qt::KeyboardModifiers mod)
 {
   Q_UNUSED(pos)
@@ -472,7 +475,7 @@ void m2Spectrum::OnMouseRelease(
   if (m_RangeSelectionStarted)
   {
     m_Controls.chartView->setRubberBand(QChartView::RubberBand::NoRubberBand);
-    DrawSelectedArea();
+    // DrawSelectedArea();
     const auto mz = (m_SelectedAreaX[1] + m_SelectedAreaX[0]) * 0.5;
     const auto tol = std::abs(m_SelectedAreaX[1] - m_SelectedAreaX[0]) * 0.5;
 
@@ -487,7 +490,7 @@ void m2Spectrum::OnMouseRelease(
   }
 }
 
-void m2Spectrum::OnMouseDoubleClick(
+void m2SpectrumView::OnMouseDoubleClick(
   QPointF pos, qreal xVal, qreal yVal, Qt::MouseButton /*button*/, Qt::KeyboardModifiers /*mod*/)
 {
   Q_UNUSED(pos)
@@ -508,9 +511,13 @@ void m2Spectrum::OnMouseDoubleClick(
     else
       emit m2::UIUtils::Instance()->UpdateImage(xVal, -1);
   }
+  // UpdateAllSeries();
+  // UpdateCurrentMinMaxY();
+  // AutoZoomUseLocalExtremaY();
+  DrawSelectedArea();
 }
 
-void m2Spectrum::OnMouseWheel(QPointF pos, qreal x, qreal y, int angle, Qt::KeyboardModifiers mod)
+void m2SpectrumView::OnMouseWheel(QPointF pos, qreal x, qreal y, int angle, Qt::KeyboardModifiers mod)
 {
   Q_UNUSED(pos)
 
@@ -549,10 +556,15 @@ void m2Spectrum::OnMouseWheel(QPointF pos, qreal x, qreal y, int angle, Qt::Keyb
     }
   }
 
-  UpdateSelectedArea();
+
+  
+  // UpdateCurrentMinMaxY();
+  // AutoZoomUseLocalExtremaY();
+
+  
 }
 
-void m2Spectrum::UpdateCurrentMinMaxY()
+void m2SpectrumView::UpdateCurrentMinMaxY()
 {
   if (m_DataProvider.empty())
     return;
@@ -562,25 +574,27 @@ void m2Spectrum::UpdateCurrentMinMaxY()
 
   for (auto &kv : m_DataProvider)
   {
-    if (!kv.first->IsVisible(nullptr))
+    if (!kv.second->GetSeries()->isVisible()){
       continue;
+    }
 
-    const auto points = kv.second->GetSeries()->points();
-    if (points.empty())
-      continue;
-
-    const auto minmax =
-      std::minmax_element(points.begin(), points.end(), [](const auto &a, const auto &b) { return a.y() < b.y(); });
-
-    m_LocalMinimumY = std::min(m_LocalMinimumY, minmax.first->y());
-    m_LocalMaximumY = std::max(m_LocalMaximumY, minmax.second->y());
+    MITK_INFO << "UpdateCurrentMinMaxY: " << kv.first->GetName();
+    const auto xs = kv.second->xs();
+    const auto ys = kv.second->ys();
+    auto lb = std::lower_bound(xs.begin(), xs.end(), m_xAxis->min());
+    auto ub = std::lower_bound(xs.begin(), xs.end(), m_xAxis->max());
+    auto lb_delta = std::distance(xs.begin(), lb);
+    auto ub_delta = std::distance(xs.begin(), ub);    
+    const auto minmax = std::minmax_element(ys.begin() + lb_delta, ys.begin() + ub_delta);
+    
+    m_LocalMinimumY = std::min(m_LocalMinimumY, std::max(0.0, *minmax.first));
+    m_LocalMaximumY = std::max(m_LocalMaximumY, *minmax.second);
   }
-
-  // MITK_INFO("UpdateLocalMinMaxValues") << minX << " " << maxX;
-  // MITK_INFO("UpdateLocalMinMaxValues") << "New local minmax Y: " << m_LocalMinimumY << " " << m_LocalMaximumY;
+  
+  MITK_INFO("UpdateCurrentMinMaxY") << "minmax: " << m_LocalMinimumY << " " << m_LocalMaximumY;
 }
 
-void m2Spectrum::UpdateGlobalMinMaxValues()
+void m2SpectrumView::UpdateGlobalMinMaxValues()
 {
   if (m_DataProvider.empty())
     return;
@@ -590,15 +604,23 @@ void m2Spectrum::UpdateGlobalMinMaxValues()
 
   for (auto kv : m_DataProvider)
   {
-    if (!kv.first->IsVisible(nullptr))
+    if (!kv.first->IsVisible(nullptr)){
+      MITK_INFO << "UpdateGlobalMinMaxValues: visible=" << kv.first->IsVisible(nullptr);
       continue;
+    }
 
     const auto points = kv.second->GetSeries()->points();
-    if (points.empty())
+    if (points.empty()){
+      MITK_INFO << "UpdateGlobalMinMaxValues: points=" << points.empty();
       continue;
+    }
 
-    if (kv.second->xs().empty())
+    if (kv.second->xs().empty()){
+      MITK_INFO << "UpdateGlobalMinMaxValues: points_xs=" << kv.second->xs().empty();
       continue;
+    }
+
+    // MITK_INFO << "UpdateGlobalMinMaxValues: " << kv.first->GetName();
 
     m_GlobalMinimumX = std::min(m_GlobalMinimumX, kv.second->xs().front());
     m_GlobalMaximumX = std::max(m_GlobalMaximumX, kv.second->xs().back());
@@ -613,15 +635,12 @@ void m2Spectrum::UpdateGlobalMinMaxValues()
   if (!useMinIntensity)
     m_GlobalMinimumY = 0;
 
-  // m_LocalMinimumY = m_GlobalMinimumY;
-  // m_LocalMaximumY = m_GlobalMaximumY;
-
   // MITK_INFO("UpdateGlobalMinMaxValues") << "New global minmax X: " << m_GlobalMinimumX << " " << m_GlobalMaximumX;
   // MITK_INFO("UpdateGlobalMinMaxValues") << "New global minmax Y: " << m_GlobalMinimumY << " " << m_GlobalMaximumY;
   // MITK_INFO("UpdateGlobalMinMaxValues") << "New local minmax Y: " << m_LocalMinimumY << " " << m_LocalMaximumY;
 }
 
-void m2Spectrum::CreateQtPartControl(QWidget *parent)
+void m2SpectrumView::CreateQtPartControl(QWidget *parent)
 {
   // create GUI widgets from the Qt Designer's .ui file
   m_Controls.setupUi(parent);
@@ -707,7 +726,7 @@ void m2Spectrum::CreateQtPartControl(QWidget *parent)
           [&]()
           {
             auto name = QFileDialog::getSaveFileName(
-              m_Controls.chartView, tr("Save File"), "/home/jana/untitled.png", tr("Images (*.png *.xpm *.jpg)"));
+              m_Controls.chartView, tr("Save File"), "~", tr("Images (*.png *.xpm *.jpg)"));
             auto r = m_Controls.chartView->rect();
             r.setX(r.x() + 10);
             r.setY(r.y() + 10);
@@ -719,7 +738,7 @@ void m2Spectrum::CreateQtPartControl(QWidget *parent)
            });
 }
 
-void m2Spectrum::CreateQChartViewMenu()
+void m2SpectrumView::CreateQChartViewMenu()
 {
   m_Menu = new QMenu(m_Controls.chartView);
 
@@ -815,14 +834,14 @@ void m2Spectrum::CreateQChartViewMenu()
 
   auto wActionX = new QWidgetAction(m_Controls.chartView);
   wActionX->setDefaultWidget(m_TickCountX);
-  connect(m_TickCountX, &QSlider::valueChanged, this, &m2Spectrum::OnAxisXTicksChanged);
+  connect(m_TickCountX, &QSlider::valueChanged, this, &m2SpectrumView::OnAxisXTicksChanged);
 
   auto wActionXLabel = new QWidgetAction(m_Controls.chartView);
   wActionXLabel->setDefaultWidget(new QLabel("X axis ticks", m_Controls.chartView));
 
   auto wActionY = new QWidgetAction(m_Controls.chartView);
   wActionY->setDefaultWidget(m_TickCountY);
-  connect(m_TickCountY, &QSlider::valueChanged, this, &m2Spectrum::OnAxisYTicksChanged);
+  connect(m_TickCountY, &QSlider::valueChanged, this, &m2SpectrumView::OnAxisYTicksChanged);
   auto wActionYLabel = new QWidgetAction(m_Controls.chartView);
   wActionYLabel->setDefaultWidget(new QLabel("Y axis ticks", m_Controls.chartView));
 
@@ -841,7 +860,7 @@ void m2Spectrum::CreateQChartViewMenu()
           [&](const QPoint &pos) { m_Menu->exec(m_Controls.chartView->viewport()->mapToGlobal(pos)); });
 }
 
-void m2Spectrum::CreateQChartView()
+void m2SpectrumView::CreateQChartView()
 {
   auto chart = new QChart();
   m_Controls.chartView->setChart(chart);
@@ -858,17 +877,19 @@ void m2Spectrum::CreateQChartView()
   m_Crosshair->setBrush(b);
   m_Crosshair->hide();
 
-  connect(m_Controls.chartView, &m2::ChartView::mouseDoubleClick, this, &m2Spectrum::OnMouseDoubleClick);
-  connect(m_Controls.chartView, &m2::ChartView::mousePress, this, &m2Spectrum::OnMousePress);
-  connect(m_Controls.chartView, &m2::ChartView::mouseMove, this, &m2Spectrum::OnMouseMove);
-  connect(m_Controls.chartView, &m2::ChartView::mouseRelease, this, &m2Spectrum::OnMouseRelease);
-  connect(m_Controls.chartView, &m2::ChartView::mouseWheel, this, &m2Spectrum::OnMouseWheel);
+  connect(m_Controls.chartView, &m2::ChartView::mouseDoubleClick, this, &m2SpectrumView::OnMouseDoubleClick);
+  connect(m_Controls.chartView, &m2::ChartView::mousePress, this, &m2SpectrumView::OnMousePress);
+  connect(m_Controls.chartView, &m2::ChartView::mouseMove, this, &m2SpectrumView::OnMouseMove);
+  connect(m_Controls.chartView, &m2::ChartView::mouseRelease, this, &m2SpectrumView::OnMouseRelease);
+  connect(m_Controls.chartView, &m2::ChartView::mouseWheel, this, &m2SpectrumView::OnMouseWheel);
 }
 
-void m2Spectrum::AutoZoomUseLocalExtremaY()
+void m2SpectrumView::AutoZoomUseLocalExtremaY()
 {
-  if (m_DataProvider.empty())
+  if (m_DataProvider.empty()){
+    MITK_INFO << "empty m2SpectrumView::AutoZoomUseLocalExtremaY()";
     return;
+  }
 
   bool useMaxIntensity = m_M2aiaPreferences->GetBool("m2aia.view.spectrum.useMaxIntensity", true);
   bool useMinIntensity = m_M2aiaPreferences->GetBool("m2aia.view.spectrum.useMinIntensity", true);
@@ -876,24 +897,26 @@ void m2Spectrum::AutoZoomUseLocalExtremaY()
   if (useMaxIntensity || useMinIntensity)
   {
     if (useMaxIntensity)
-    {
       m_yAxis->setMax(m_LocalMaximumY * 1.1);
-    } // else use just current zoom, no adaptions.
 
-    if (useMinIntensity)
-    {
+
+    if (useMinIntensity){
       m_yAxis->setMin(m_LocalMinimumY);
     }
     else
     {
-      m_GlobalMinimumY = 0;
+      
       m_LocalMinimumY = 0;
       m_yAxis->setMin(0);
     }
   }
+  // MITK_INFO << "[A] m_LocalMinimumY: " << m_LocalMinimumY;
+  // MITK_INFO << "[A] m_LocalMaximumY: " << m_LocalMaximumY;
+  // MITK_INFO << "[B] m_GlobalMinimumY: " << m_GlobalMinimumY;
+  // MITK_INFO << "[B] m_GlobalMaximumY: " << m_GlobalMaximumY;
 }
 
-void m2Spectrum::OnSeriesFocused(const mitk::DataNode *node)
+void m2SpectrumView::OnSeriesFocused(const mitk::DataNode *node)
 {
   double xMin = m_GlobalMaximumX;
   double xMax = m_GlobalMinimumX;
@@ -908,7 +931,7 @@ void m2Spectrum::OnSeriesFocused(const mitk::DataNode *node)
   // AutoZoomUseLocalExtremaY();
 }
 
-void m2Spectrum::NodeRemoved(const mitk::DataNode *node)
+void m2SpectrumView::NodeRemoved(const mitk::DataNode *node)
 {
   if (dynamic_cast<m2::SpectrumImage *>(node->GetData()) || dynamic_cast<m2::IntervalVector *>(node->GetData()))
   {
@@ -945,7 +968,7 @@ void m2Spectrum::NodeRemoved(const mitk::DataNode *node)
   // OnResetView();
 }
 
-void m2Spectrum::SetSeriesVisible(QAbstractSeries *series, bool visibility)
+void m2SpectrumView::SetSeriesVisible(QAbstractSeries *series, bool visibility)
 {
   auto markers = m_Chart->legend()->markers();
   std::vector<QLegendMarker *> series_marker;
@@ -986,20 +1009,20 @@ void m2Spectrum::SetSeriesVisible(QAbstractSeries *series, bool visibility)
   }
 }
 
-void m2Spectrum::OnLegnedHandleMarkerClicked()
+void m2SpectrumView::OnLegnedHandleMarkerClicked()
 {
   auto *marker = qobject_cast<QLegendMarker *>(sender());
   Q_ASSERT(marker);
   SetSeriesVisible(marker->series(), !marker->series()->isVisible());
 }
 
-void m2Spectrum::OnResetView()
+void m2SpectrumView::OnResetView()
 {
   if (m_DataProvider.empty())
     return;
 }
 
-void m2Spectrum::OnAxisXTicksChanged(int v)
+void m2SpectrumView::OnAxisXTicksChanged(int v)
 {
   m_AxisTicks[0] = v;
   if (m_xAxis)
@@ -1015,7 +1038,7 @@ void m2Spectrum::OnAxisXTicksChanged(int v)
   }
 }
 
-void m2Spectrum::OnAxisYTicksChanged(int v)
+void m2SpectrumView::OnAxisYTicksChanged(int v)
 {
   m_AxisTicks[1] = v;
   if (m_yAxis)
@@ -1031,7 +1054,7 @@ void m2Spectrum::OnAxisYTicksChanged(int v)
   }
 }
 
-void m2Spectrum::OnRangeChangedAxisX(qreal xMin, qreal xMax)
+void m2SpectrumView::OnRangeChangedAxisX(qreal xMin, qreal xMax)
 {
   if (m_DataProvider.empty())
     return;
@@ -1058,18 +1081,23 @@ void m2Spectrum::OnRangeChangedAxisX(qreal xMin, qreal xMax)
     axis->blockSignals(false);
   }
 
-  UpdateCurrentMinMaxY();
-  UpdateAllSeries();
-  AutoZoomUseLocalExtremaY();
-}
-
-void m2Spectrum::UpdateAllSeries()
-{
   for (auto &kv : m_DataProvider)
-    kv.second->UpdateBoundaries(m_LocalMinimumX, m_LocalMaximumX);
+    kv.second->GenerateSeriesDataWithinRange(m_LocalMinimumX, m_LocalMaximumX);
+  
+  UpdateCurrentMinMaxY();
+  AutoZoomUseLocalExtremaY();
+  UpdateSelectedArea();
+  DrawSelectedArea();
+  
 }
 
-void m2Spectrum::OnRangeChangedAxisY(qreal min, qreal max)
+void m2SpectrumView::UpdateAllSeries()
+{
+   for (auto &kv : m_DataProvider)
+     kv.second->GenerateSeriesDataWithinRange(m_LocalMinimumX, m_LocalMaximumX);
+}
+
+void m2SpectrumView::OnRangeChangedAxisY(qreal min, qreal max)
 {
   if (max > m_GlobalMaximumY * 1.1)
   {
@@ -1084,10 +1112,11 @@ void m2Spectrum::OnRangeChangedAxisY(qreal min, qreal max)
     m_yAxis->setMin(m_GlobalMinimumY);
     m_yAxis->blockSignals(false);
   }
-  UpdateSelectedArea();
+  
+  
 }
 
-void m2Spectrum::UpdateTitles(const mitk::DataNode *node)
+void m2SpectrumView::UpdateTitles(const mitk::DataNode *node)
 {
   if (!m_xAxis || !m_yAxis)
     return;

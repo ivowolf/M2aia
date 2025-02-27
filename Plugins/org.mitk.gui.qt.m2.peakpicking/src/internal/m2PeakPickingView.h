@@ -33,8 +33,9 @@ namespace itk
 {
   template <typename TPixelType, unsigned int Dimension>
   class VectorImageToImageAdaptor;
-
 }
+
+
 
 /**
   \brief m2PeakPickingView

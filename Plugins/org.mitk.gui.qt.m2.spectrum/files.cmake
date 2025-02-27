@@ -4,18 +4,18 @@ set(SRC_CPP_FILES
 
 set(INTERNAL_CPP_FILES
   org_mitk_gui_qt_m2_spectrum_Activator.cpp 
-  m2Spectrum.cpp
+  m2SpectrumView.cpp
   m2SeriesDataProvider.cpp
   Qm2CentroidScatterSeries.hpp
 )
 
 set(UI_FILES
-  src/internal/m2Spectrum.ui
+  src/internal/m2SpectrumView.ui
 )
 
 set(MOC_H_FILES
   src/internal/org_mitk_gui_qt_m2_spectrum_Activator.h
-  src/internal/m2Spectrum.h
+  src/internal/m2SpectrumView.h
   src/internal/m2SeriesDataProvider.h
   src/internal/Qm2CentroidScatterSeries.hpp
   src/m2ChartView.h
