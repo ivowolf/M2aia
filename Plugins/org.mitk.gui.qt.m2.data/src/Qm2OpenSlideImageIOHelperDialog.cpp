@@ -19,6 +19,7 @@ See LICENSE.txt for details.
 #include "GL/gl.h"
 #include <QMessageBox>
 #include <QPixmap>
+#include <QTransform>
 #include <QmitkNodeDescriptorManager.h>
 #include <itkImageDuplicator.h>
 #include <itkImageFileReader.h>
@@ -94,6 +95,18 @@ void Qm2OpenSlideImageIOHelperDialog::SetOpenSlideImageIOHelperObject(m2::OpenSl
   m_Helper = helper;
 }
 
+void Qm2OpenSlideImageIOHelperDialog::UpdatePixmap(){
+  auto pixmap = GetPixmapFromImageNode(m_LowResImage, 256);
+  if(m_Controls.chkMirrorX->isChecked())
+    pixmap = pixmap.transformed(QTransform().scale(-1, 1));
+   
+  if(m_Controls.chkMirrorY->isChecked())
+    pixmap = pixmap.transformed(QTransform().scale(1, -1));
+ 
+  m_Controls.labelImage->setPixmap(pixmap);
+  m_Controls.labelImage->repaint();
+}
+
 void Qm2OpenSlideImageIOHelperDialog::UpdateImageInformation()
 {
   auto IO = m_Helper->GetOpenSlideIO();
@@ -102,9 +115,28 @@ void Qm2OpenSlideImageIOHelperDialog::UpdateImageInformation()
   mitk::ItkImageIO reader(IO);
   reader.mitk::AbstractFileReader::SetInput(IO->GetFileName());
   auto dataList = reader.Read();
-  mitk::Image::Pointer lowResImage = dynamic_cast<mitk::Image *>(dataList.back().GetPointer());
-  auto pixmap = GetPixmapFromImageNode(lowResImage, 256);
-  m_Controls.labelImage->setPixmap(pixmap);
+  m_LowResImage = dynamic_cast<mitk::Image *>(dataList.back().GetPointer());
+  
+
+  connect(m_Controls.chkMirrorX, &QCheckBox::toggled, this,
+    [this](bool checked) 
+    { 
+      m_Controls.chkMirrorX->setChecked(checked); 
+      UpdatePixmap();
+    }
+  );
+
+  connect(m_Controls.chkMirrorY, &QCheckBox::toggled, this,
+    [this](bool checked) 
+    { 
+      m_Controls.chkMirrorY->setChecked(checked); 
+      UpdatePixmap();
+    }
+  );
+
+  UpdatePixmap();
+
+
   m_Controls.metaDataList->clear();
   auto metadata = IO->GetMetaDataDictionary();
 
@@ -149,7 +181,10 @@ void Qm2OpenSlideImageIOHelperDialog::UpdateImageInformation()
     item->setData(Qt::UserRole, (unsigned int)(kv.first));
 
     m_Controls.imageSelectionList->addItem(item);
+    
+
   }
+  
 
   connect(m_Controls.imageSelectionList,
           &QListWidget::currentItemChanged,
@@ -184,6 +219,9 @@ void Qm2OpenSlideImageIOHelperDialog::UpdateImageInformation()
 
             m_Controls.warningLabel->setText(warn);
           });
+
+    // Preselect the first item
+    m_Controls.imageSelectionList->setCurrentRow(0);
 }
 
 mitk::Image::Pointer Qm2OpenSlideImageIOHelperDialog::GetPreviewData()

@@ -46,6 +46,10 @@ namespace m2
     itkSetMacro(NumberOfTilesInX, unsigned);
     itkGetMacro(NumberOfTilesInY, unsigned);
     itkSetMacro(NumberOfTilesInY, unsigned);
+    itkSetMacro(MirrorX, bool);
+    itkGetMacro(MirrorX, bool);
+    itkSetMacro(MirrorY, bool);
+    itkGetMacro(MirrorY, bool);
     virtual mitk::Image::Pointer GetInput();
     virtual void SetInput(mitk::Image *);
     virtual void Update();
@@ -58,7 +62,8 @@ namespace m2
     unsigned m_NumberOfTilesInX = 1;
     unsigned m_NumberOfTilesInY = 1;
     unsigned m_InputWidth, m_InputHeight;
-
+    bool m_MirrorX = false;
+    bool m_MirrorY = false;
     bool m_HasResidualsX, m_HasResidualsY;
     
     mitk::Image::Pointer m_Input;

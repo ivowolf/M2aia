@@ -83,7 +83,19 @@ void m2::SubdivideImage2DFilter::GenerateData()
       o[0] = o[0] + x * m_TileWidth * s[0];
       o[1] = o[1] + y * m_TileHeight * s[1];
       output->SetOrigin(o);
+      auto g = output->GetGeometry();
+      auto M = g->GetVtkMatrix();
       
+      // mirror x axis
+      if(m_MirrorX)
+        M->GetData()[0] = -M->GetData()[0];
+      
+      // mirror y axis
+      if(m_MirrorY)
+        M->GetData()[5] = -M->GetData()[5];
+
+
+      g->SetIndexToWorldTransformByVtkMatrix(M);
 
       MITK_INFO << "InFilter " << static_cast<mitk::Image*>(output.GetPointer())->GetGeometry()->GetOrigin();
       
