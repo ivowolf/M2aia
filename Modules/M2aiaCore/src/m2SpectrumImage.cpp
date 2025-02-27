@@ -41,23 +41,23 @@ mitk::Image::Pointer m2::SpectrumImage::GetNormalizationImage()
 
 mitk::Image::Pointer m2::SpectrumImage::GetNormalizationImage(m2::NormalizationStrategyType type)
 {
-  if (m_NormalizationImages.find(type) != m_NormalizationImages.end())
-    
+  if (m_NormalizationImages.find(type) != m_NormalizationImages.end()){
       return m_NormalizationImages.at(type).image;
+  }
   return nullptr;
 }
 
-mitk::Image::Pointer m2::SpectrumImage::GetNormalizationImage() const
-{
-    return GetNormalizationImage(m_NormalizationStrategy);
-}
+// mitk::Image::Pointer m2::SpectrumImage::GetNormalizationImage() const
+// {
+//     return GetNormalizationImage(m_NormalizationStrategy);
+// }
 
-mitk::Image::Pointer m2::SpectrumImage::GetNormalizationImage(m2::NormalizationStrategyType type) const
-{
-  if (m_NormalizationImages.find(type) != m_NormalizationImages.end())
-      return m_NormalizationImages.at(type).image;
-  return nullptr;
-};
+// mitk::Image::Pointer m2::SpectrumImage::GetNormalizationImage(m2::NormalizationStrategyType type) const
+// {
+//   if (m_NormalizationImages.find(type) != m_NormalizationImages.end())
+//       return m_NormalizationImages.at(type).image;
+//   return nullptr;
+// };
 
 bool m2::SpectrumImage::GetNormalizationImageStatus(m2::NormalizationStrategyType type)
 {

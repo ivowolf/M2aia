@@ -48,6 +48,7 @@ set(H_FILES
 )
 
 set(CPP_FILES
+  m2CoreCommon.cpp
   m2SpectrumImage.cpp
   m2SpectrumImageHelper.cpp
   m2SpectrumImageStack.cpp

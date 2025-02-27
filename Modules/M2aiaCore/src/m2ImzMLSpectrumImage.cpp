@@ -175,8 +175,7 @@ void m2::ImzMLSpectrumImage::InitializeImageAccess()
 
 void m2::ImzMLSpectrumImage::InitializeNormalizationImage(m2::NormalizationStrategyType type){
   if(GetNormalizationImageStatus(type) == false){
-   m_SpectrumImageSource->InitializeNormalizationImage(type);
-   SetNormalizationImageStatus(type, true);
+   m_SpectrumImageSource->InitializeNormalizationImage(type);   
   }
 }
 

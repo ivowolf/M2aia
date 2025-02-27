@@ -125,9 +125,6 @@ void m2Data::CreateQtPartControl(QWidget *parent)
     {
       if (auto image = dynamic_cast<m2::SpectrumImage *>(node->GetData()))
       {
-        if (!image->GetNormalizationImageStatus(type))
-          image->InitializeNormalizationImage(type);
-
         std::string name = "NormalizationImage" + m2::to_string(type);
 
         const auto derivations = this->GetDataStorage()->GetDerivations(node);
@@ -143,6 +140,8 @@ void m2Data::CreateQtPartControl(QWidget *parent)
             {
               // if it should be visible in the data storage remove the helper object property
               dNode->RemoveProperty("helper object");
+              if (!image->GetNormalizationImageStatus(type))
+                 image->InitializeNormalizationImage(type);
 
               // update level window
               mitk::LevelWindow lw;
@@ -237,19 +236,25 @@ void m2Data::CreateQtPartControl(QWidget *parent)
   auto *preferencesService = mitk::CoreServices::GetPreferencesService();
   auto *preferences = preferencesService->GetSystemPreferences();
 
+  auto UpdateNodeSettings = [this](){
+    auto nodesToProcess = m2::UIUtils::AllNodes(GetDataStorage());
+    ApplySettingsToNodes(nodesToProcess);
+  };
+
   connect(m_Controls.spnBxTol,
           qOverload<double>(&QDoubleSpinBox::valueChanged),
           this,
-          [this, preferences](int)
+          [this, preferences, UpdateNodeSettings](int)
           {
             auto value = m_Controls.spnBxTol->value();
             preferences->PutFloat("m2aia.signal.Tolerance", value);
+            UpdateNodeSettings();
           });
 
   connect(m_Controls.CBNormalization,
           qOverload<int>(&QComboBox::currentIndexChanged),
           this,
-          [this, preferences](int)
+          [this, preferences, UpdateNodeSettings](int)
           {
             auto value = m_Controls.CBNormalization->currentData().toUInt();
             preferences->PutInt("m2aia.signal.NormalizationStrategy", value);
@@ -258,43 +263,51 @@ void m2Data::CreateQtPartControl(QWidget *parent)
   connect(m_Controls.CBTransformation,
           qOverload<int>(&QComboBox::currentIndexChanged),
           this,
-          [this, preferences](int)
+          [this, preferences, UpdateNodeSettings](int)
           {
             auto value = m_Controls.CBTransformation->currentData().toUInt();
             preferences->PutInt("m2aia.signal.IntensityTransformationStrategy", value);
+            UpdateNodeSettings();
           });
 
   connect(m_Controls.CBImagingStrategy,
           qOverload<int>(&QComboBox::currentIndexChanged),
           this,
-          [this, preferences](int)
+          [this, preferences, UpdateNodeSettings](int)
           {
             auto value = m_Controls.CBImagingStrategy->currentData().toUInt();
             preferences->PutInt("m2aia.signal.RangePoolingStrategy", value);
+            UpdateNodeSettings();
           });
+
   connect(m_Controls.CBSmoothing,
           qOverload<int>(&QComboBox::currentIndexChanged),
           this,
-          [this, preferences](int)
+          [this, preferences, UpdateNodeSettings](int)
           {
             auto value = m_Controls.CBSmoothing->currentData().toUInt();
             preferences->PutInt("m2aia.signal.SmoothingStrategy", value);
+            UpdateNodeSettings();
           });
+
   connect(m_Controls.CBImageNormalization,
           qOverload<int>(&QComboBox::currentIndexChanged),
           this,
-          [this, preferences](int)
+          [this, preferences, UpdateNodeSettings](int)
           {
             auto value = m_Controls.CBImageNormalization->currentData().toUInt();
             preferences->PutInt("m2aia.signal.ImageNormalizationStrategy", value);
+            UpdateNodeSettings();
           });
+
   connect(m_Controls.CBImageSmoothing,
           qOverload<int>(&QComboBox::currentIndexChanged),
           this,
-          [this, preferences](int)
+          [this, preferences, UpdateNodeSettings](int)
           {
             auto value = m_Controls.CBImageSmoothing->currentData().toUInt();
             preferences->PutInt("m2aia.signal.ImageSmoothingStrategy", value);
+            UpdateNodeSettings();
           });
 
 
@@ -722,7 +735,12 @@ void m2Data::ApplySettingsToImage(m2::SpectrumImage *data)
     data->SetBaseLineCorrectionHalfWindowSize(m_Controls.spnBxBaseline->value());
     data->SetUseToleranceInPPM(m_Controls.rbtnTolPPM->isChecked());
 
-    // data->SetBinningTolerance(m_Controls.spnBxPeakBinning->value());
+    
+    // Initialize normalization image
+    auto type = data->GetNormalizationStrategy();
+    if(!data->GetNormalizationImageStatus(type))
+      data->InitializeNormalizationImage(type);
+    
   }
 }
 
@@ -749,12 +767,11 @@ void m2Data::OnGenerateImageData(mitk::DataNode::Pointer node,
     auto xMin = data->GetPropertyValue<double>("m2aia.xs.min");
     auto xMax = data->GetPropertyValue<double>("m2aia.xs.max");
     if (xRangeCenter > xMax || xRangeCenter < xMin){
-      mitk::ImagePixelWriteAccessor<m2::DisplayImagePixelType, 3> acc(data);
-      auto N = std::accumulate(data->GetDimensions(), data->GetDimensions()+3, 1, std::multiplies<int>());
-      std::fill(acc.GetData(), acc.GetData() + N, 0);
-      UpdateLevelWindow(node);
-      this->RequestRenderWindowUpdate();
-
+      // mitk::ImagePixelWriteAccessor<m2::DisplayImagePixelType, 3> acc(data);
+      // auto N = std::accumulate(data->GetDimensions(), data->GetDimensions()+3, 1, std::multiplies<int>());
+      // std::fill(acc.GetData(), acc.GetData() + N, 0);
+      // UpdateLevelWindow(node);
+      // this->RequestRenderWindowUpdate();
       return;
     }
 
@@ -1044,6 +1061,8 @@ void m2Data::OpenSlideImageNodeAdded(const mitk::DataNode *node)
       try
       {
         auto data = dialog->GetData();
+        auto mx = dialog->GetMirrorX();
+        auto my = dialog->GetMirrorY();
         // auto preview = dialog->GetPreviwData();
         // mitk::DataNode::Pointer parent = nullptr;
         // if (preview)
@@ -1057,6 +1076,8 @@ void m2Data::OpenSlideImageNodeAdded(const mitk::DataNode *node)
         if (data.size() == 1)
         {
           auto filter = m2::SubdivideImage2DFilter::New();
+          filter->SetMirrorX(mx);
+          filter->SetMirrorY(my);
           filter->SetInput(data.back());
           filter->SetTileHeight((unsigned int)(1) << 13);
           filter->SetTileWidth((unsigned int)(1) << 13);
@@ -1193,6 +1214,21 @@ void m2Data::SpectrumImageNodeAdded(const mitk::DataNode *node)
       helperNode->SetName("PCA");
       helperNode->SetVisibility(false);
       helperNode->SetData(pcaImages[0]);
+      helperNode->SetStringProperty("m2aia.helper.image.name", "PCAImage");
+      this->GetDataStorage()->Add(helperNode, const_cast<mitk::DataNode *>(node));
+    }
+
+    fileName = itksys::SystemTools::GetFilenamePath(inputLocation) + "/" +
+    itksys::SystemTools::GetFilenameWithoutLastExtension(inputLocation) + ".def.nrrd";
+    if(itksys::SystemTools::FileExists(fileName)){
+      auto images = mitk::IOUtil::Load(fileName);
+      std::string index;
+      auto metaData = images[0]->GetMetaDataDictionary();
+      itk::ExposeMetaData<std::string>(metaData, "m2aia.stack.index", index);
+      helperNode = mitk::DataNode::New();
+      helperNode->SetName(itksys::SystemTools::GetFilenameWithoutLastExtension(inputLocation) + ".def.nrrd");
+      helperNode->SetVisibility(true);
+      helperNode->SetData(images[0]);
       helperNode->SetStringProperty("m2aia.helper.image.name", "PCAImage");
       this->GetDataStorage()->Add(helperNode, const_cast<mitk::DataNode *>(node));
     }

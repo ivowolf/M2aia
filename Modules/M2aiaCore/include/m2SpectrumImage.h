@@ -140,14 +140,14 @@ namespace m2
     /// @brief Return and if necessary prepare the normalization image for the *currently* selected normalization method
     virtual mitk::Image::Pointer GetNormalizationImage();
 
-    /// @brief Return the normalization image for the *currently* selected normalization method
-    virtual mitk::Image::Pointer GetNormalizationImage() const;
+    // /// @brief Return the normalization image for the *currently* selected normalization method
+    // virtual mitk::Image::Pointer GetNormalizationImage() const;
 
     /// @brief Return and if necessary prepare the normalization image
     virtual mitk::Image::Pointer GetNormalizationImage(m2::NormalizationStrategyType type);
 
-    /// @brief Return the normalization image
-    virtual mitk::Image::Pointer GetNormalizationImage(m2::NormalizationStrategyType type) const;
+    // /// @brief Return the normalization image
+    // virtual mitk::Image::Pointer GetNormalizationImage(m2::NormalizationStrategyType type) const;
 
     /// @brief Set/override the normalization image
     virtual void SetNormalizationImage(mitk::Image::Pointer, m2::NormalizationStrategyType type);

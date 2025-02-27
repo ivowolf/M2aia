@@ -32,6 +32,7 @@ See LICENSE.txt or https://www.github.com/jtfcordes/m2aia for details.
 #include "QmitkDataNodeConvertPixelTypeAction.h"
 #include "QmitkDataNodeConvertToRGBImageAction.h"
 #include "QmitkDataNodeReimportImageAction.h"
+#include "QmitkDataNodeCreateLabelSetRegionSpectraAction.h"
 
 #include <m2UIUtils.h>
 #include <m2IntervalVector.h>
@@ -75,6 +76,7 @@ void org_mitk_gui_qt_m2_common_Activator::start(ctkPluginContext *context)
   desc->AddAction(new QmitkDataNodeConvertPixelTypeAction(), false);
   desc->AddAction(new QmitkDataNodePlotColorAction(), false);
   desc->AddAction(new QmitkDataNodeReimportImageAction(), false);
+  desc->AddAction(new QmitkDataNodeCreateLabelSetRegionSpectraAction(), false);
 
   // desc = descriptorManager->GetDescriptor("SpectrumImageStack");
   // desc->AddAction(new QmitkDataNodeSliceWiseNormalizationAction(), false);

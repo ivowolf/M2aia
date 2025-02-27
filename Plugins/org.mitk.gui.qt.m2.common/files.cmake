@@ -11,6 +11,7 @@ set(INTERNAL_CPP_FILES
   QmitkDataNodeExportComponentAction.cpp
   QmitkDataNodeReimportImageAction.cpp
   QmitkDataNodePlotColorAction.cpp
+  QmitkDataNodeCreateLabelSetRegionSpectraAction.cpp
 )
 
 set(UI_FILES
@@ -33,6 +34,7 @@ set(MOC_H_FILES
   src/internal/QmitkDataNodeExportComponentAction.h
   src/internal/QmitkDataNodePlotColorAction.h
   src/internal/QmitkDataNodeReimportImageAction.h
+  src/internal/QmitkDataNodeCreateLabelSetRegionSpectraAction.h
 )
 
 # list of resource files which can be used by the plug-in
