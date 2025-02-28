@@ -125,7 +125,7 @@ void m2Data::CreateQtPartControl(QWidget *parent)
     {
       if (auto image = dynamic_cast<m2::SpectrumImage *>(node->GetData()))
       {
-        std::string name = "NormalizationImage" + m2::to_string(type);
+        std::string name = node->GetName() + "." + m2::to_string(type);
 
         const auto derivations = this->GetDataStorage()->GetDerivations(node);
         for (const auto &dNode : *derivations)
@@ -1133,7 +1133,7 @@ void m2Data::FsmImageNodeAdded(const mitk::DataNode *)
 
 void m2Data::SpectrumImageNodeAdded(const mitk::DataNode *node)
 {
-
+  
 
   auto nodes = GetDataStorage()->GetAll();
   // resolve name-conflicts
@@ -1157,6 +1157,9 @@ void m2Data::SpectrumImageNodeAdded(const mitk::DataNode *node)
   {
     // -------------- add data interactor --------------
 
+    std::string inputLocation;
+    node->GetStringProperty("MITK.IO.reader.inputlocation", inputLocation);
+
     auto interactor = m2::SpectrumImageDataInteractor::New();
     interactor->LoadStateMachine("PointSet.xml");
     interactor->SetEventConfig("PointSetConfig.xml");
@@ -1170,7 +1173,7 @@ void m2Data::SpectrumImageNodeAdded(const mitk::DataNode *node)
 
     // -------------- add Mask to datastorage --------------
     auto helperNode = mitk::DataNode::New();
-    helperNode->SetName("MaskImage");
+    helperNode->SetName(itksys::SystemTools::GetFilenameWithoutLastExtension(inputLocation) + ".mask");
     helperNode->SetVisibility(m_Controls.showMaskImages->isChecked());
     helperNode->SetData(spectrumImage->GetMaskImage());
     helperNode->SetStringProperty("m2aia.helper.image.name", "MaskImage");
@@ -1192,44 +1195,41 @@ void m2Data::SpectrumImageNodeAdded(const mitk::DataNode *node)
       this->GetDataStorage()->Add(helperNode, const_cast<mitk::DataNode *>(node));
     }
 
-    std::string inputLocation;
-    node->GetStringProperty("MITK.IO.reader.inputlocation", inputLocation);
-    auto fileName = itksys::SystemTools::GetFilenamePath(inputLocation) + "/" +
-    itksys::SystemTools::GetFilenameWithoutLastExtension(inputLocation) + ".tSNE.nrrd";
+    auto nodeName = itksys::SystemTools::GetFilenameWithoutLastExtension(inputLocation) + ".tSNE";
+    auto fileName = itksys::SystemTools::GetFilenamePath(inputLocation) + "/" + nodeName + ".nrrd";
     if(itksys::SystemTools::FileExists(fileName)){
       auto tsneImages = mitk::IOUtil::Load(fileName);
       helperNode = mitk::DataNode::New();
-      helperNode->SetName("tSNE");
+      helperNode->SetName(nodeName);
       helperNode->SetVisibility(false);
       helperNode->SetData(tsneImages[0]);
       helperNode->SetStringProperty("m2aia.helper.image.name", "tSNEImage");
       this->GetDataStorage()->Add(helperNode, const_cast<mitk::DataNode *>(node));
     }
     
-    fileName = itksys::SystemTools::GetFilenamePath(inputLocation) + "/" +
-    itksys::SystemTools::GetFilenameWithoutLastExtension(inputLocation) + ".PCA.nrrd";
+    nodeName = itksys::SystemTools::GetFilenameWithoutLastExtension(inputLocation) + ".PCA";
+    fileName = itksys::SystemTools::GetFilenamePath(inputLocation) + "/" + nodeName + ".nrrd";
     if(itksys::SystemTools::FileExists(fileName)){
       auto pcaImages = mitk::IOUtil::Load(fileName);
       helperNode = mitk::DataNode::New();
-      helperNode->SetName("PCA");
+      helperNode->SetName(nodeName);
       helperNode->SetVisibility(false);
       helperNode->SetData(pcaImages[0]);
       helperNode->SetStringProperty("m2aia.helper.image.name", "PCAImage");
       this->GetDataStorage()->Add(helperNode, const_cast<mitk::DataNode *>(node));
     }
-
-    fileName = itksys::SystemTools::GetFilenamePath(inputLocation) + "/" +
-    itksys::SystemTools::GetFilenameWithoutLastExtension(inputLocation) + ".def.nrrd";
+    nodeName = itksys::SystemTools::GetFilenameWithoutLastExtension(inputLocation) + ".def";
+    fileName = itksys::SystemTools::GetFilenamePath(inputLocation) + "/" + nodeName + ".nrrd";
     if(itksys::SystemTools::FileExists(fileName)){
       auto images = mitk::IOUtil::Load(fileName);
       std::string index;
       auto metaData = images[0]->GetMetaDataDictionary();
       itk::ExposeMetaData<std::string>(metaData, "m2aia.stack.index", index);
       helperNode = mitk::DataNode::New();
-      helperNode->SetName(itksys::SystemTools::GetFilenameWithoutLastExtension(inputLocation) + ".def.nrrd");
+      helperNode->SetName(nodeName);
       helperNode->SetVisibility(true);
       helperNode->SetData(images[0]);
-      helperNode->SetStringProperty("m2aia.helper.image.name", "PCAImage");
+      helperNode->SetStringProperty("m2aia.helper.image.name", "defImage");
       this->GetDataStorage()->Add(helperNode, const_cast<mitk::DataNode *>(node));
     }
 
@@ -1252,7 +1252,7 @@ void m2Data::SpectrumImageNodeAdded(const mitk::DataNode *node)
     {
 
       helperNode = mitk::DataNode::New();
-      helperNode->SetName("NormalizationImage" + m2::to_string(type));
+      helperNode->SetName(node->GetName() + "." + m2::to_string(type));
       helperNode->SetBoolProperty("binary", false);
       
       // here we add only the template images

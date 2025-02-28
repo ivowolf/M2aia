@@ -126,7 +126,7 @@ void QmitkDataCompressionView::OnSaveDataCompressionResults()
     node->GetStringProperty("MITK.IO.reader.inputlocation", inputLocation);
     
     
-    if (auto child = this->GetDataStorage()->GetNamedDerivedNode("PCA", node)){
+    if (auto child = this->GetDataStorage()->GetNamedDerivedNode((node->GetName() + ".PCA").c_str(), node)){
       auto pcaImage = dynamic_cast<mitk::Image *>(child->GetData());
       mitk::IOUtil::Save(pcaImage, 
       itksys::SystemTools::GetFilenamePath(inputLocation) + "/" +
@@ -134,7 +134,7 @@ void QmitkDataCompressionView::OnSaveDataCompressionResults()
     }
 
         
-    if (auto child = this->GetDataStorage()->GetNamedDerivedNode("tSNE", node)){
+    if (auto child = this->GetDataStorage()->GetNamedDerivedNode((node->GetName() + ".tSNE").c_str(), node)){
       auto pcaImage = dynamic_cast<mitk::Image *>(child->GetData());
       mitk::IOUtil::Save(pcaImage, 
       itksys::SystemTools::GetFilenamePath(inputLocation) + "/" +
@@ -244,13 +244,13 @@ void QmitkDataCompressionView::OnStartPCA()
       filter->SetNumberOfComponents(m_Controls.pca_dims->value());
       filter->Update();
       progressBar->Progress();
-
-      auto child = this->GetDataStorage()->GetNamedDerivedNode("PCA", imageNode);
+      auto name = imageNode->GetName() + ".PCA";
+      auto child = this->GetDataStorage()->GetNamedDerivedNode(name.c_str(), imageNode);
       if (!child){     
         auto outputNode = mitk::DataNode::New();
         mitk::Image::Pointer data = filter->GetOutput(0);
         outputNode->SetData(data);
-        outputNode->SetName("PCA");
+        outputNode->SetName(name);
         this->GetDataStorage()->Add(outputNode, const_cast<mitk::DataNode *>(imageNode.GetPointer()));
       }else{
         child->SetData(filter->GetOutput(0));
@@ -273,8 +273,8 @@ void QmitkDataCompressionView::OnStartTSNE()
   {
     if (auto image = dynamic_cast<m2::SpectrumImage *>(node->GetData()))
     {
-      
-      auto pcaChild = this->GetDataStorage()->GetNamedDerivedNode("PCA", node);
+      auto pcaName = node->GetName() + ".PCA";
+      auto pcaChild = this->GetDataStorage()->GetNamedDerivedNode(pcaName.c_str(), node);
       if (!pcaChild)
         return;
 
@@ -341,11 +341,12 @@ void QmitkDataCompressionView::OnStartTSNE()
 
       
       auto data = m2::MultiSliceFilter::ConvertMitkVectorImageToRGB(ResampleVectorImage(filter->GetOutput(), image));
-      auto child = this->GetDataStorage()->GetNamedDerivedNode("tSNE", node);
+      auto name = node->GetName() + ".tSNE";
+      auto child = this->GetDataStorage()->GetNamedDerivedNode(name.c_str(), node);
       if (!child){     
         auto outputNode = mitk::DataNode::New();
         outputNode->SetData(data);
-        outputNode->SetName("tSNE");
+        outputNode->SetName(node->GetName() + ".tSNE");
         this->GetDataStorage()->Add(outputNode, const_cast<mitk::DataNode *>(node.GetPointer()));
       }else{
         child->SetData(data);
