@@ -21,6 +21,8 @@ See LICENSE.txt for details.
 #include <mitkImagePixelReadAccessor.h>
 #include <mitkImagePixelWriteAccessor.h>
 #include <mitkLabelSetImage.h>
+#include <mitkImageAccessByItk.h>
+#include <mitkProgressBar.h>
 
 // OpenMP
 #include <omp.h>
@@ -38,24 +40,28 @@ void m2::KMeansImageFilter::GenerateData()
 
   for (auto [imageId, image] : m_Inputs)
   {
-    auto spectrumImage = dynamic_cast<m2::ImzMLSpectrumImage *>(image.GetPointer());
-    if (!spectrumImage->GetImageAccessInitialized())
+    if(auto spectrumImage = dynamic_cast<m2::ImzMLSpectrumImage *>(image.GetPointer())){
+
+      if (!spectrumImage->GetImageAccessInitialized())
       MITK_INFO << "Image access not initialized";
-
-    if (!spectrumImage->GetMaskImage())
+      
+      if (!spectrumImage->GetMaskImage())
       MITK_INFO << "Mask image not set";
-
-
-    std::vector<itk::Index<3>> validIndices;
-    auto maskImage = spectrumImage->GetMaskImage();
-    mitk::ImagePixelReadAccessor<mitk::LabelSetImage::PixelType, 3> maskAcc(maskImage);
-
-    for (auto s : spectrumImage->GetSpectra())
-      if (maskAcc.GetPixelByIndex(s.index) != 0)
+      
+      
+      std::vector<itk::Index<3>> validIndices;
+      auto maskImage = spectrumImage->GetMaskImage();
+      mitk::ImagePixelReadAccessor<mitk::LabelSetImage::PixelType, 3> maskAcc(maskImage);
+      
+      for (auto s : spectrumImage->GetSpectra())
+       if (maskAcc.GetPixelByIndex(s.index) != 0)
         validIndices.push_back(s.index);
+      
+      m_ValidIndicesMap[imageId] = validIndices;
+      MITK_INFO << "Image found with " << validIndices.size() << " valid indices";
+    }
 
-    m_ValidIndicesMap[imageId] = validIndices;
-    MITK_INFO << "Image found with " << validIndices.size() << " valid indices";
+    
   }
 
   auto N = std::accumulate(m_ValidIndicesMap.begin(),
@@ -69,6 +75,7 @@ void m2::KMeansImageFilter::GenerateData()
 
   MITK_INFO << "Start filling data matrix ....";
   size_t offset = 0;
+  mitk::ProgressBar::GetInstance()->AddStepsToDo(m_Inputs.size() * m_Intervals.size());
   for (auto [imageId, image] : m_Inputs)
   {
     auto validIndices = m_ValidIndicesMap[imageId];
@@ -87,6 +94,7 @@ void m2::KMeansImageFilter::GenerateData()
         mitk::ImagePixelReadAccessor<m2::DisplayImagePixelType, 3> acc(ionImage);
         data(v++, col) = acc.GetPixelByIndex(index);
       }
+      mitk::ProgressBar::GetInstance()->Progress();
     }
     offset += validIndices.size();
   }
