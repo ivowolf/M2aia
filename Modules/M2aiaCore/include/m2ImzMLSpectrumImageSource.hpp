@@ -498,8 +498,14 @@ template <class MassAxisType, class IntensityType>
 void m2::ImzMLSpectrumImageSource<MassAxisType, IntensityType>::InitializeNormalizationImage(
   m2::NormalizationStrategyType type)
 {
+  
+  if(p->GetNormalizationImageStatus(type)) 
+    return;
+
   // initialize the normalization iamge
   auto image = p->GetNormalizationImage(type);
+  auto normImageRef = p->GetNormalizationImage(m2::NormalizationStrategyType::None);
+  image->Initialize(normImageRef);
   
   // create a write accessor
   using WriteAccessorType = mitk::ImagePixelWriteAccessor<NormImagePixelType, 3>;
@@ -886,28 +892,32 @@ void m2::ImzMLSpectrumImageSource<MassAxisType, IntensityType>::InitializeGeomet
     image->SetProperty("m2aia.mask.initialization", mitk::StringProperty::New("external"));
   }
 
-  // auto max_dim0 = p->GetDimensions()[0];
-  // auto max_dim1 = p->GetDimensions()[1];
-  std::vector<std::thread> threads;
-
-  for (auto type : m2::NormalizationStrategyTypeList)
+  
   {
-    m2::Timer t("Initialization of the " + m2::NormalizationStrategyTypeNames.at((unsigned int)(type)) +
-                " images took");
-    t.printIf = [](m2::Timer::Duration d) -> bool { return d.count() > 0.5; };
+    // Initialize image pointer for all normalization strategies
+    for (auto type :  m2::NormalizationStrategyTypeList)
+    {
+      auto normImage = mitk::Image::New();
+      p->SetNormalizationImage(normImage, type);
+      p->SetNormalizationImageStatus(type, false);
+    }
+  }
+
+  
+  {
+    // Create a reference image for normalization images
+    auto normImage = p->GetNormalizationImage(m2::NormalizationStrategyType::None);
 
     using LocalImageType = itk::Image<m2::NormImagePixelType, 3>;
     auto caster = itk::CastImageFilter<ImageType, LocalImageType>::New();
     caster->SetInput(itkIonImage);
     caster->Update();
-    auto normImage = mitk::Image::New();
-    p->SetNormalizationImage(normImage, type);
     normImage->InitializeByItk(caster->GetOutput());
-
+    
     mitk::ImagePixelWriteAccessor<m2::NormImagePixelType, 3> acc(normImage);
     std::memset(acc.GetData(), 1, imageSize[0] * imageSize[1] * imageSize[2] * sizeof(m2::NormImagePixelType));
-    p->SetNormalizationImageStatus(type, false);
- 
+    
+    p->SetNormalizationImageStatus(m2::NormalizationStrategyType::None, true);
   }
 
   // mitk::ImagePixelWriteAccessor<m2::DisplayImagePixelType, 3> acc(p);

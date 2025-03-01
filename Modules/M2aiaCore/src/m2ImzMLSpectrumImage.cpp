@@ -53,6 +53,7 @@ void m2::ImzMLSpectrumImage::GetImage(double mz, double tol, const mitk::Image *
     m_CurrentX = mz;
   }catch(std::exception & e){
     MITK_ERROR << "Ion image could not be generated! Queried range is [" << mz-tol << ", " <<mz+tol << "]\n" << e.what();
+    m_IsIonImageGenerated = false;
   }
 }
 

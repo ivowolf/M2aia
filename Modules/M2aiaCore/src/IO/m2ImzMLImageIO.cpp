@@ -746,7 +746,6 @@ namespace m2
     auto pathWithoutExtension = RemoveExtensionFromPath(GetInputLocation());
 
     auto maskPath = pathWithoutExtension + ".mask.nrrd";
-    MITK_INFO << maskPath;
     if (itksys::SystemTools::FileExists(maskPath))
     {
       auto data = mitk::IOUtil::Load(maskPath).at(0);
@@ -754,11 +753,23 @@ namespace m2
     }
 
     auto shiftImagePath = pathWithoutExtension + ".index_shift.nrrd";
-    MITK_INFO << shiftImagePath;
     if (itksys::SystemTools::FileExists(shiftImagePath))
     {
       auto data = mitk::IOUtil::Load(shiftImagePath).at(0);
       object->SetShiftImage(dynamic_cast<mitk::Image *>(data.GetPointer()));
+    }
+
+    for (auto type : m2::NormalizationStrategyTypeList)
+    {
+      auto typeName = m2::NormalizationStrategyTypeNames[to_underlying(type)];
+      auto fileName = pathWithoutExtension + "." + typeName + ".nrrd";
+      
+      if(itksys::SystemTools::FileExists(fileName)){ 
+        auto dataVector = mitk::IOUtil::Load(fileName);
+        auto externalImage = dynamic_cast<mitk::Image *>(dataVector[0].GetPointer());
+        object->SetNormalizationImage(externalImage, type);
+        object->SetNormalizationImageStatus(type, true);
+      }
     }
 
     // auto normPath = pathWithoutExtension + ".norm.nrrd";

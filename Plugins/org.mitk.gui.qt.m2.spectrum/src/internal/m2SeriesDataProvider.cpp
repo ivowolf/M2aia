@@ -76,7 +76,6 @@ void m2::SeriesDataProvider::InitializeSeries()
 void m2::SeriesDataProvider::InitializeLoDData() {
   if (to_underlying(m_Format) & to_underlying(m2::SpectrumFormat::Centroid))
   {
-    MITK_INFO << "Centroid " << (to_underlying(m_Format) & to_underlying(m2::SpectrumFormat::Centroid));
     m_DataLoD.clear();
     PointsVector target;
     m_xs = m_IntervalVector->GetXMean();
@@ -225,7 +224,6 @@ void m2::SeriesDataProvider::SetMarkerSpectrumDefaultMarkerStyle(QXYSeries *seri
 int m2::SeriesDataProvider::FindLoD(double xMin, double xMax) const
 {
   if (to_underlying(m_Format) & to_underlying(m2::SpectrumFormat::Centroid)){
-    MITK_INFO << "Centroid " << (to_underlying(m_Format) & to_underlying(m2::SpectrumFormat::Centroid));
     return 0;
   }
 

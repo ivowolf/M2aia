@@ -158,7 +158,7 @@ void m2Data::CreateQtPartControl(QWidget *parent)
     }
   };
 
-  const auto toggleByName = [&](bool isChecked, const char *name)
+  const auto toggleByName = [&](bool isChecked, const char *postfix)
   {
     const auto a = TNodePredicateDataType<m2::SpectrumImageStack>::New();
     const auto b = TNodePredicateDataType<m2::ImzMLSpectrumImage>::New();
@@ -170,7 +170,7 @@ void m2Data::CreateQtPartControl(QWidget *parent)
       const auto derivations = this->GetDataStorage()->GetDerivations(node);
       for (const auto &dNode : *derivations)
       {
-        if (dNode->GetName().find(name) != std::string::npos)
+        if (dNode->GetName().find(postfix) != std::string::npos)
         {
           dNode->SetVisibility(isChecked);
           if (!isChecked)
@@ -200,27 +200,27 @@ void m2Data::CreateQtPartControl(QWidget *parent)
   connect(m_Controls.showIndexImages,
           &QCheckBox::toggled,
           this,
-          [toggleByName](bool isChecked) { toggleByName(isChecked, "IndexImage"); });
+          [toggleByName](bool isChecked) { toggleByName(isChecked, ".index"); });
   connect(m_Controls.showMaskImages,
           &QCheckBox::toggled,
           this,
-          [toggleByName](bool isChecked) { toggleByName(isChecked, "MaskImage"); });
+          [toggleByName](bool isChecked) { toggleByName(isChecked, ".mask"); });
   connect(m_Controls.showMeanSpectrum,
           &QCheckBox::toggled,
           this,
-          [toggleByName](bool isChecked) { toggleByName(isChecked, "MeanSpectrum"); });
+          [toggleByName](bool isChecked) { toggleByName(isChecked, ".mean_spectrum"); });
   connect(m_Controls.showMaxSpectrum,
           &QCheckBox::toggled,
           this,
-          [toggleByName](bool isChecked) { toggleByName(isChecked, "MaxSpectrum"); });
+          [toggleByName](bool isChecked) { toggleByName(isChecked, ".max_spectrum"); });
   connect(m_Controls.showSingleSpectrum,
           &QCheckBox::stateChanged,
           this,
-          [toggleByName](bool isChecked) { toggleByName(isChecked, "SingleSpectrum"); });
+          [toggleByName](bool isChecked) { toggleByName(isChecked, ".single_spectrum"); });
   connect(m_Controls.showCentroidSpectrum,
           &QCheckBox::stateChanged,
           this,
-          [toggleByName](bool isChecked) { toggleByName(isChecked, "CentroidSpectrum"); });
+          [toggleByName](bool isChecked) { toggleByName(isChecked, ".centroids"); });
 
   connect(m2::UIUtils::Instance(),
           &m2::UIUtils::RequestTolerance,
@@ -1172,11 +1172,12 @@ void m2Data::SpectrumImageNodeAdded(const mitk::DataNode *node)
     m2::DefaultNodeProperties(node);
 
     // -------------- add Mask to datastorage --------------
+    auto nodeName = itksys::SystemTools::GetFilenameWithoutLastExtension(inputLocation) + ".mask";
     auto helperNode = mitk::DataNode::New();
-    helperNode->SetName(itksys::SystemTools::GetFilenameWithoutLastExtension(inputLocation) + ".mask");
+    helperNode->SetName(nodeName);
     helperNode->SetVisibility(m_Controls.showMaskImages->isChecked());
     helperNode->SetData(spectrumImage->GetMaskImage());
-    helperNode->SetStringProperty("m2aia.helper.image.name", "MaskImage");
+    helperNode->SetStringProperty("m2aia.helper.image.name", "mask");
 
     // add hidden to DS
     helperNode->SetBoolProperty("helper object", true);
@@ -1186,7 +1187,7 @@ void m2Data::SpectrumImageNodeAdded(const mitk::DataNode *node)
 
     // -------------- add ShiftImage to datastorage --------------
     if(spectrumImage->GetShiftImage()){
-
+      nodeName = itksys::SystemTools::GetFilenameWithoutLastExtension(inputLocation) + ".shift";
       helperNode = mitk::DataNode::New();
       helperNode->SetName("ShiftImage");
       helperNode->SetVisibility(false);
@@ -1195,7 +1196,7 @@ void m2Data::SpectrumImageNodeAdded(const mitk::DataNode *node)
       this->GetDataStorage()->Add(helperNode, const_cast<mitk::DataNode *>(node));
     }
 
-    auto nodeName = itksys::SystemTools::GetFilenameWithoutLastExtension(inputLocation) + ".tSNE";
+    nodeName = itksys::SystemTools::GetFilenameWithoutLastExtension(inputLocation) + ".tSNE";
     auto fileName = itksys::SystemTools::GetFilenamePath(inputLocation) + "/" + nodeName + ".nrrd";
     if(itksys::SystemTools::FileExists(fileName)){
       auto tsneImages = mitk::IOUtil::Load(fileName);
@@ -1235,58 +1236,39 @@ void m2Data::SpectrumImageNodeAdded(const mitk::DataNode *node)
 
 
     // -------------- add Index to datastorage --------------
+    nodeName = itksys::SystemTools::GetFilenameWithoutLastExtension(inputLocation) + ".index";
     helperNode = mitk::DataNode::New();
-    helperNode->SetName("IndexImage");
+    helperNode->SetName(nodeName);
     helperNode->SetVisibility(m_Controls.showIndexImages->isChecked());
     helperNode->SetData(spectrumImage->GetIndexImage());
-    helperNode->SetStringProperty("m2aia.helper.image.name", "IndexImage");
+    helperNode->SetStringProperty("m2aia.helper.image.name", "index");
     helperNode->SetBoolProperty("binary", false);
     // add hidden to DS
     helperNode->SetBoolProperty("helper object", true);
     this->GetDataStorage()->Add(helperNode, const_cast<mitk::DataNode *>(node));
-    // consideration of the check boxes
     emit m_Controls.showIndexImages->toggled(m_Controls.showIndexImages->isChecked());
 
     // -------------- add Normalization to datastorage --------------
     for (auto type : m2::NormalizationStrategyTypeList)
     {
+      // clear the image data if not already initialized
+      auto image = spectrumImage->GetNormalizationImage(type);
+
+
+      auto name = node->GetName() + "." + m2::to_string(type);
 
       helperNode = mitk::DataNode::New();
       helperNode->SetName(node->GetName() + "." + m2::to_string(type));
       helperNode->SetBoolProperty("binary", false);
-      
-      // here we add only the template images
-      // initialization is done by UI interaction
-      
-      auto typeName = m2::NormalizationStrategyTypeNames[to_underlying(type)];
-      fileName = itksys::SystemTools::GetFilenamePath(inputLocation) + "/" +
-      itksys::SystemTools::GetFilenameWithoutLastExtension(inputLocation) + "." + typeName + ".nrrd";
-      
-      if(itksys::SystemTools::FileExists(fileName)){ 
-        auto dataVector = mitk::IOUtil::Load(fileName);
-        auto externalImage = dynamic_cast<mitk::Image *>(dataVector[0].GetPointer());
-        spectrumImage->SetNormalizationImage(externalImage, type);
-        spectrumImage->SetNormalizationImageStatus(type, true);
-      }
-      
-      auto image = spectrumImage->GetNormalizationImage(type);
-      helperNode->SetData(image); 
-
-      // add hidden to DS
       helperNode->SetBoolProperty("helper object", true);
-      this->GetDataStorage()->Add(helperNode, const_cast<mitk::DataNode *>(node));
-      auto name = m2::NormalizationStrategyTypeNames.at(to_underlying(type))+ "Image";
+      helperNode->SetData(image); 
       helperNode->SetStringProperty("m2aia.helper.image.normalization.name", name.c_str());
       helperNode->SetIntProperty("m2aia.helper.image.normalization.type", to_underlying(type));
 
-      // clear the image data if not already initialized
-      if(image && !spectrumImage->GetNormalizationImageStatus(type)){
-        auto imageSize = image->GetDimensions();
-        mitk::ImagePixelWriteAccessor<m2::NormImagePixelType, 3> acc(image);
-        std::memset(acc.GetData(), 0, imageSize[0] * imageSize[1] * imageSize[2] * sizeof(m2::NormImagePixelType));
-      }
+      // add hidden to DS
+      this->GetDataStorage()->Add(helperNode, const_cast<mitk::DataNode *>(node));
+      
 
-      // consideration of the check boxes
       auto checkBox = m_Controls.settings->findChild<QCheckBox *>(("ckBoxNormalizationImage" + m2::to_string(type)).c_str());
       emit checkBox->toggled(checkBox->isChecked());
     }
@@ -1332,19 +1314,19 @@ void m2Data::SpectrumImageNodeAdded(const mitk::DataNode *node)
     if (spectrumImage->GetSpectrumType().Format == m2::SpectrumFormat::ContinuousProfile ||
         spectrumImage->GetSpectrumType().Format == m2::SpectrumFormat::ProcessedProfile)
     {
-      AddSpectrum("MaxSpectrum (" + node->GetName() + ")",
+      AddSpectrum(node->GetName() + ".max_spectrum",
                   m2::SpectrumFormat::Profile,
                   "overview.max",
                   xs,
                   spectrumImage->GetSkylineSpectrum(),
                   m_Controls.showMaxSpectrum->isChecked());
-      AddSpectrum("MeanSpectrum (" + node->GetName() + ")",
+      AddSpectrum(node->GetName() + ".mean_spectrum",
                   m2::SpectrumFormat::Profile,
                   "overview.mean",
                   xs,
                   spectrumImage->GetMeanSpectrum(),
                   m_Controls.showMeanSpectrum->isChecked());
-      AddSpectrum("SingleSpectrum (" + node->GetName() + ")",
+      AddSpectrum(node->GetName() + ".single_spectrum",
                   m2::SpectrumFormat::Profile,
                   "overview.single",
                   {},
@@ -1353,14 +1335,14 @@ void m2Data::SpectrumImageNodeAdded(const mitk::DataNode *node)
     }
     else
     {
-      AddSpectrum("CentroidSpectrum (" + node->GetName() + ")",
+      AddSpectrum(node->GetName() + ".centroids",
                   m2::SpectrumFormat::Centroid,
                   "overview.centroids",
                   xs,
                   spectrumImage->GetMeanSpectrum(),
                   m_Controls.showCentroidSpectrum->isChecked(),
                   0.5);
-      AddSpectrum("SingleSpectrum (" + node->GetName() + ")",
+      AddSpectrum(node->GetName() + ".single_spectrum",
                   m2::SpectrumFormat::Centroid,
                   "overview.single",
                   {},
