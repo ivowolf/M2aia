@@ -241,19 +241,18 @@ void m2SpectrumView::OnDataModified(const itk::Object *caller, const itk::EventO
   MITK_INFO << "Test";
   if (auto node = dynamic_cast<const mitk::DataNode *>(caller))
   {
-    if (!node->IsVisible(nullptr))
-      return;
-
-    if (auto intervalVector = dynamic_cast<m2::IntervalVector *>(node->GetData()))
-    {
-      auto provider = m_DataProvider[node];
-      provider->SetData(intervalVector);
-      provider->InitializeLoDData();
-      UpdateGlobalMinMaxValues();
-      UpdateCurrentMinMaxY();
-      DrawSelectedArea();
-      provider->GenerateSeriesDataWithinRange(m_LocalMinimumX, m_LocalMaximumX);
-      m_Controls.chartView->repaint();
+    if (node->IsVisible(nullptr)){
+      if (auto intervalVector = dynamic_cast<m2::IntervalVector *>(node->GetData()))
+      {
+        auto provider = m_DataProvider[node];
+        provider->SetData(intervalVector);
+        provider->InitializeLoDData();
+        UpdateGlobalMinMaxValues();
+        UpdateCurrentMinMaxY();
+        provider->GenerateSeriesDataWithinRange(m_xAxis->min(), m_xAxis->max());
+        m_Controls.chartView->repaint();
+        DrawSelectedArea();
+      }
     }
   }
 }
@@ -314,7 +313,7 @@ void m2SpectrumView::OnPropertyListChanged(const itk::Object *caller, const itk:
           }
         }
 
-        // UpdateCurrentMinMaxY();
+        
         // UpdateGlobalMinMaxValues();
 
         // UpdateSelectedArea();
@@ -365,7 +364,7 @@ void m2SpectrumView::NodeAdded(const mitk::DataNode *node)
 
   if (auto intervals = dynamic_cast<m2::IntervalVector *>(node->GetData()))
   {
-    MITK_INFO << "NodeAdded: " << node->GetName();
+    // MITK_INFO << "NodeAdded: " << node->GetName();
 
     if (m_DataProvider.empty())
     {
@@ -378,25 +377,25 @@ void m2SpectrumView::NodeAdded(const mitk::DataNode *node)
 
     if (node->IsOn("helper object", nullptr, false))
       isVisible = false;
-
+    // new data provider
     auto provider = std::make_shared<m2::SeriesDataProvider>();
     provider->SetData(intervals);
     provider->InitializeSeries();
     provider->InitializeLoDData();
-    
+    provider->GenerateSeriesDataWithinRange(m_LocalMinimumX, m_LocalMaximumX);
     provider->GetSeries()->setName(node->GetName().c_str());
     provider->GetSeries()->setVisible(isVisible);
-    
     m_DataProvider[node] = provider;
+
+
+    
+    // sampling points
     m_NodeRelatedGraphicItems[node] = new QGraphicsItemGroup();
     m_Chart->scene()->addItem(m_NodeRelatedGraphicItems[node]);
-    m_Chart->addSeries(provider->GetSeries());
     
+    // add the series to the chart
+    m_Chart->addSeries(provider->GetSeries());
     m_Chart->createDefaultAxes();
-    m_xAxis = static_cast<QValueAxis *>(m_Chart->axes(Qt::Horizontal).front());
-    m_yAxis = static_cast<QValueAxis *>(m_Chart->axes(Qt::Vertical).front());
-    QObject::connect(m_yAxis, SIGNAL(rangeChanged(qreal, qreal)), this, SLOT(OnRangeChangedAxisY(qreal, qreal)));
-    QObject::connect(m_xAxis, SIGNAL(rangeChanged(qreal, qreal)), this, SLOT(OnRangeChangedAxisX(qreal, qreal)));
     
     auto onPropertyListModifiedCommand = itk::NodeMemberCommand<m2SpectrumView>::New();
     onPropertyListModifiedCommand->SetNode(node);
@@ -405,25 +404,45 @@ void m2SpectrumView::NodeAdded(const mitk::DataNode *node)
     
     auto onDataModifiedCommand = itk::NodeMemberCommand<m2SpectrumView>::New();
     onDataModifiedCommand->SetNode(node);
+    onDataModifiedCommand->SetCallbackFunction(this, &m2SpectrumView::OnDataModified);
     node->AddObserver(m2::IntervalVectorModified(), onDataModifiedCommand);
-    
-    OnAxisXTicksChanged(m_AxisTicks[0]);
-    OnAxisYTicksChanged(m_AxisTicks[1]);
-    
+        
     m2::DefaultNodeProperties(node, false);
     node->GetPropertyList()->Modified();
-    node->Modified();
     
-    UpdateGlobalMinMaxValues();  
-    onDataModifiedCommand->SetCallbackFunction(this, &m2SpectrumView::OnDataModified);
-    m_xAxis->setRange(m_LocalMinimumX, m_LocalMaximumX); // triggers OnRangeChangedAxisX
     m_Controls.chartView->repaint();
     
     // node->InvokeEvent(m2::IntervalVectorModified());
-    MITK_INFO << "NodeAdded: " << node->GetName() << " DONE!";
-    provider->GenerateSeriesDataWithinRange();
+    // MITK_INFO << "NodeAdded: " << node->GetName() << " DONE!";
+    
+    // loop over all data providers and update the global min max values
+    UpdateGlobalMinMaxValues();
+    
+    m_xAxis = static_cast<QValueAxis *>(m_Chart->axes(Qt::Horizontal).front());
+    m_yAxis = static_cast<QValueAxis *>(m_Chart->axes(Qt::Vertical).front());
+    QObject::disconnect(m_yAxis, SIGNAL(rangeChanged(qreal, qreal)), this, SLOT(OnRangeChangedAxisY(qreal, qreal)));
+    QObject::disconnect(m_xAxis, SIGNAL(rangeChanged(qreal, qreal)), this, SLOT(OnRangeChangedAxisX(qreal, qreal)));
+    
+    
+    UpdateCurrentMinMaxY();
 
-    // UpdateTitles(node);
+    m_xAxis->setRange(m_GlobalMinimumX, m_GlobalMaximumX);
+    m_yAxis->setRange(m_LocalMinimumY, m_LocalMaximumY*1.1);
+     
+    MITK_INFO << " =============================== ";
+    MITK_INFO << m_LocalMinimumX << " " << m_LocalMaximumX;
+    MITK_INFO << m_LocalMinimumY << " " << m_LocalMaximumY;
+    MITK_INFO << m_GlobalMinimumX << " " << m_GlobalMaximumX;
+    MITK_INFO << m_GlobalMinimumY << " " << m_GlobalMaximumY;
+    // m_yAxis->setRange(m_GlobalMinimumY, m_GlobalMaximumY*1.1);
+    
+    QObject::connect(m_yAxis, SIGNAL(rangeChanged(qreal, qreal)), this, SLOT(OnRangeChangedAxisY(qreal, qreal)));
+    QObject::connect(m_xAxis, SIGNAL(rangeChanged(qreal, qreal)), this, SLOT(OnRangeChangedAxisX(qreal, qreal)));
+ 
+ 
+    OnAxisXTicksChanged(m_AxisTicks[0]);
+    OnAxisYTicksChanged(m_AxisTicks[1]);
+
   }
 }
 
@@ -504,7 +523,7 @@ void m2SpectrumView::OnMouseDoubleClick(
     if (yVal < m_yAxis->min()) // rest x
       m_xAxis->setRange(m_GlobalMinimumX, m_GlobalMaximumX);
     else if (xVal < m_xAxis->min())
-      m_yAxis->setRange(0, m_GlobalMaximumY * 1.1); // reset y
+      m_yAxis->setRange(0, m_LocalMaximumY * 1.1); // reset y
     else if (xVal > m_xAxis->max())
     {
     } // do nothing
@@ -591,7 +610,7 @@ void m2SpectrumView::UpdateCurrentMinMaxY()
     m_LocalMaximumY = std::max(m_LocalMaximumY, *minmax.second);
   }
   
-  MITK_INFO("UpdateCurrentMinMaxY") << "minmax: " << m_LocalMinimumY << " " << m_LocalMaximumY;
+  // MITK_INFO("UpdateCurrentMinMaxY") << "minmax: " << m_LocalMinimumY << " " << m_LocalMaximumY;
 }
 
 void m2SpectrumView::UpdateGlobalMinMaxValues()
@@ -604,19 +623,20 @@ void m2SpectrumView::UpdateGlobalMinMaxValues()
 
   for (auto kv : m_DataProvider)
   {
-    if (!kv.first->IsVisible(nullptr)){
-      MITK_INFO << "UpdateGlobalMinMaxValues: visible=" << kv.first->IsVisible(nullptr);
-      continue;
-    }
+    // if (!kv.second->GetSeries()->isVisible()){
+    //   // MITK_INFO << "UpdateGlobalMinMaxValues: visible=" << kv.second->GetSeries()->isVisible();
+    //   continue;
+    // }
 
-    const auto points = kv.second->GetSeries()->points();
-    if (points.empty()){
-      MITK_INFO << "UpdateGlobalMinMaxValues: points=" << points.empty();
-      continue;
-    }
+    // const auto points = kv.second->GetSeries()->points();
+    // if (points.empty()){
+    //   // MITK_INFO << "UpdateGlobalMinMaxValues: points=" << points.empty();
+    //   continue;
+    // }
 
-    if (kv.second->xs().empty()){
-      MITK_INFO << "UpdateGlobalMinMaxValues: points_xs=" << kv.second->xs().empty();
+    if (kv.second->xs().empty() || kv.second->ys().empty())
+    {
+      // MITK_INFO << "UpdateGlobalMinMaxValues: points_xs=" << kv.second->xs().empty();
       continue;
     }
 
@@ -625,10 +645,11 @@ void m2SpectrumView::UpdateGlobalMinMaxValues()
     m_GlobalMinimumX = std::min(m_GlobalMinimumX, kv.second->xs().front());
     m_GlobalMaximumX = std::max(m_GlobalMaximumX, kv.second->xs().back());
 
-    const auto cmp = [](const auto &a, const auto &b) { return a.y() < b.y(); };
-    const auto minmaxY = std::minmax_element(std::begin(points), std::end(points), cmp);
-    m_GlobalMinimumY = std::min(std::max(0.0, m_GlobalMinimumY), std::max(0.0, minmaxY.first->y()));
-    m_GlobalMaximumY = std::max(m_GlobalMaximumY, minmaxY.second->y());
+    // const auto cmp = [](const auto &a, const auto &b) { return a.y() < b.y(); };
+    const auto minmaxY = std::minmax_element(std::begin(kv.second->ys()), std::end(kv.second->ys()));
+
+    m_GlobalMinimumY = std::min(std::max(0.0, m_GlobalMinimumY), std::max(0.0, *minmaxY.first));
+    m_GlobalMaximumY = std::max(m_GlobalMaximumY, *minmaxY.second);
   }
 
   auto useMinIntensity = m_M2aiaPreferences->GetBool("m2aia.view.spectrum.useMinIntensity", true);
@@ -1089,6 +1110,7 @@ void m2SpectrumView::OnRangeChangedAxisX(qreal xMin, qreal xMax)
   UpdateSelectedArea();
   DrawSelectedArea();
   
+
 }
 
 void m2SpectrumView::UpdateAllSeries()
