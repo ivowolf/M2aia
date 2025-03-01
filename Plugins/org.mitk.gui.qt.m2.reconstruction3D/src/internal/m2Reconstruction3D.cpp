@@ -202,16 +202,37 @@ std::shared_ptr<m2::ElxRegistrationHelper> m2Reconstruction3D::RegistrationStep(
 
 std::vector<std::string> m2Reconstruction3D::GetParameters()
 {
-  auto rigidParameters = m_ParameterFiles[0];
-  auto deformableParameters = m_ParameterFiles[1];
+  std::vector<std::string> parameterFiles{m_ParameterFiles[0], m_ParameterFiles[1]};
+
+  // Rigid
+  auto text = m_Controls.comboBox->currentText();
+  if (text == "None")
+  {
+    m2::ElxUtil::ReplaceParameter(parameterFiles[0], "AutomaticTransformInitialization", "false");
+  }
+  else if (text == "Geometrical Center")
+  {
+    m2::ElxUtil::ReplaceParameter(parameterFiles[0], "AutomaticTransformInitialization", "true");
+    m2::ElxUtil::ReplaceParameter(parameterFiles[0], "AutomaticTransformInitializationMethod", "GeometricalCenter");
+  }
+  else if (text == "Center of Gravity")
+  {
+    m2::ElxUtil::ReplaceParameter(parameterFiles[0], "AutomaticTransformInitialization", "true");
+    m2::ElxUtil::ReplaceParameter(parameterFiles[0], "AutomaticTransformInitializationMethod", "CenterOfGravity");
+  }
 
   m2::ElxUtil::ReplaceParameter(
-    rigidParameters, "MaximumNumberOfIterations", std::to_string(m_Controls.RigidMaxIters->value()));
+    parameterFiles[0], "MaximumNumberOfIterations", std::to_string(m_Controls.RigidMaxIters->value()));
+
+  // deformable
+  const auto gridSpacing = m_Controls.spinBoxFinalGridSpacing->value();
 
   m2::ElxUtil::ReplaceParameter(
-    deformableParameters, "MaximumNumberOfIterations", std::to_string(m_Controls.DeformableMaxIters->value()));
+    parameterFiles[1], "MaximumNumberOfIterations", std::to_string(m_Controls.DeformableMaxIters->value()));
+  m2::ElxUtil::ReplaceParameter(parameterFiles[1], "FinalGridSpacingInPhysicalUnits", std::to_string(gridSpacing));
+  m2::ElxUtil::ReplaceParameter(parameterFiles[1], "MaximumNumberOfIterations", std::to_string(m_Controls.DeformableMaxIters->value()));
 
-  return {rigidParameters, deformableParameters};
+  return parameterFiles;
 }
 
 void m2Reconstruction3D::OnStartStacking()
@@ -340,11 +361,8 @@ void m2Reconstruction3D::OnStartStacking()
 
   m_ReconstructionFutureWatcher.setFuture(
       QtConcurrent::run([stackNames, spectrumImageStack1, spectrumImageStack2, numItems, doMultiModalImageRegistration, this](){
-      QFutureInterface<void> futureInterface;
-      futureInterface.setProgressRange(0, numItems - 1);
       
-      futureInterface.reportStarted();
-      int progress = 0; 
+      // int progress = 0; 
 
       const bool UseSubsequentOrdering = !m_Controls.chkBxCoRegistrationToSelected->isChecked();
       const auto currentRow = m_List1->currentRow() < 0 ? numItems / 2 : m_List1->currentRow();
@@ -356,7 +374,7 @@ void m2Reconstruction3D::OnStartStacking()
         elxHelper->SetImageData(M1.image, M1.image);
         elxHelper->SetRegistrationParameters({});
         spectrumImageStack1->Insert(currentRow, elxHelper);
-        futureInterface.setProgressValue(++progress);
+        // futureInterface.setProgressValue(++progress);
       }
 
       // Initialize stack 2
@@ -364,14 +382,15 @@ void m2Reconstruction3D::OnStartStacking()
       {
         auto elxHelper = RegistrationStep(currentRow, m_List1, nullptr, currentRow, m_List2);
         spectrumImageStack2->Insert(currentRow, elxHelper);
-        futureInterface.setProgressValue(++progress);
+        // futureInterface.setProgressValue(++progress);
       }
         
-      QFutureWatcher<void> watcher0;
-      watcher0.setFuture(QtConcurrent::run(
-        [&]()
-        {
-          QFutureInterface<void> futureInterface;
+      // QFutureWatcher<void> watcher0;
+      // watcher0.setFuture(
+        // auto td0 = QtConcurrent::run(
+        // [&]()
+        // {
+        
           for (int movingId = currentRow - 1; movingId >= 0; --movingId)
           {
             // stack 1
@@ -388,15 +407,13 @@ void m2Reconstruction3D::OnStartStacking()
               spectrumImageStack2->Insert(movingId, elxHelper);
             }
          
-            futureInterface.setProgressValue(++progress);
+            
           }
-        }));
+        // });
 
-      QFutureWatcher<void> watcher1;
-      watcher1.setFuture(QtConcurrent::run(
-        [&]()
-            {
-              QFutureInterface<void> futureInterface;
+        // auto td1 = QtConcurrent::run(
+        // [&]()
+        //     {
               for (int movingId = currentRow + 1; movingId < numItems; ++movingId)
               {
                 // stack 1
@@ -411,18 +428,15 @@ void m2Reconstruction3D::OnStartStacking()
                   elxHelper = RegistrationStep(movingId, m_List1, elxHelper, movingId, m_List2);
                   spectrumImageStack2->Insert(movingId, elxHelper);
                 }
-                futureInterface.setProgressValue(++progress);
+
               }
-            }
-        )
-        );
+            // }
+        // );
 
-      watcher0.waitForFinished();
-      watcher1.waitForFinished();
+      // td0.waitForFinished();
+      // td1.waitForFinished();
 
       
-      
-
       spectrumImageStack1->InitializeProcessor();
       spectrumImageStack1->InitializeGeometry();
 
@@ -432,7 +446,7 @@ void m2Reconstruction3D::OnStartStacking()
         spectrumImageStack2->InitializeGeometry();
       }
 
-      futureInterface.reportFinished();
+      // futureInterface.reportFinished();
   }));
 }
 

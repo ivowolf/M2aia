@@ -70,81 +70,6 @@
     </layout>
    </item>
    <item>
-    <widget class="Line" name="line">
-     <property name="orientation">
-      <enum>Qt::Horizontal</enum>
-     </property>
-    </widget>
-   </item>
-   <item>
-    <widget class="QCheckBox" name="chkBxCoRegistrationToSelected">
-     <property name="text">
-      <string>Coregister all images to the selected</string>
-     </property>
-    </widget>
-   </item>
-   <item>
-    <widget class="QCheckBox" name="chkBxOmitDeformable">
-     <property name="text">
-      <string>Rigid only</string>
-     </property>
-    </widget>
-   </item>
-   <item>
-    <widget class="QCheckBox" name="chkBxUseFixedMask">
-     <property name="text">
-      <string>Use fixed mask</string>
-     </property>
-     <property name="checked">
-      <bool>false</bool>
-     </property>
-    </widget>
-   </item>
-   <item>
-    <widget class="QCheckBox" name="chkBxUseMovingMask">
-     <property name="text">
-      <string>Use moving mask</string>
-     </property>
-     <property name="checked">
-      <bool>false</bool>
-     </property>
-    </widget>
-   </item>
-   <item>
-    <widget class="QCheckBox" name="chkBxUseMovingMaskDeform">
-     <property name="text">
-      <string>Use moving mask (deformable)</string>
-     </property>
-     <property name="checked">
-      <bool>false</bool>
-     </property>
-    </widget>
-   </item>
-   <item>
-    <widget class="QCheckBox" name="chkBxUseFixedMaskDeform">
-     <property name="text">
-      <string>Use fixed mask (deformable)</string>
-     </property>
-     <property name="checked">
-      <bool>false</bool>
-     </property>
-    </widget>
-   </item>
-   <item>
-    <widget class="QPushButton" name="btnEditParameterFiles">
-     <property name="text">
-      <string>Edit elastix parameter files</string>
-     </property>
-    </widget>
-   </item>
-   <item>
-    <widget class="Line" name="line_5">
-     <property name="orientation">
-      <enum>Qt::Horizontal</enum>
-     </property>
-    </widget>
-   </item>
-   <item>
     <layout class="QHBoxLayout" name="horizontalLayout">
      <item>
       <widget class="QLabel" name="label_2">
@@ -184,6 +109,164 @@
     </layout>
    </item>
    <item>
+    <widget class="Line" name="line">
+     <property name="orientation">
+      <enum>Qt::Orientation::Horizontal</enum>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QCheckBox" name="chkBxCoRegistrationToSelected">
+     <property name="text">
+      <string>Coregister all images to the selected</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_7">
+     <item>
+      <widget class="QCheckBox" name="chkBxUseMovingMask">
+       <property name="text">
+        <string>Use moving mask</string>
+       </property>
+       <property name="checked">
+        <bool>false</bool>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QCheckBox" name="chkBxUseFixedMask">
+       <property name="text">
+        <string>Use fixed mask</string>
+       </property>
+       <property name="checked">
+        <bool>false</bool>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_8">
+     <item>
+      <widget class="QCheckBox" name="chkBxUseMovingMaskDeform">
+       <property name="text">
+        <string>Use moving mask (deformable)</string>
+       </property>
+       <property name="checked">
+        <bool>false</bool>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QCheckBox" name="chkBxUseFixedMaskDeform">
+       <property name="text">
+        <string>Use fixed mask (deformable)</string>
+       </property>
+       <property name="checked">
+        <bool>false</bool>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_2">
+     <item>
+      <widget class="QLabel" name="label_6">
+       <property name="text">
+        <string>Initial alignment:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="comboBox">
+       <property name="currentIndex">
+        <number>2</number>
+       </property>
+       <item>
+        <property name="text">
+         <string>None</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Center of Gravity</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Geometrical Center</string>
+        </property>
+       </item>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QVBoxLayout" name="verticalLayout_5">
+     <item>
+      <layout class="QHBoxLayout" name="horizontalLayout_6">
+       <item>
+        <widget class="QLabel" name="label_7">
+         <property name="text">
+          <string>FinalGridSpacingInPhysicalUnits</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QDoubleSpinBox" name="spinBoxFinalGridSpacing">
+         <property name="minimumSize">
+          <size>
+           <width>150</width>
+           <height>0</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>150</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <property name="suffix">
+          <string>mm</string>
+         </property>
+         <property name="decimals">
+          <number>2</number>
+         </property>
+         <property name="minimum">
+          <double>0.010000000000000</double>
+         </property>
+         <property name="maximum">
+          <double>100000.000000000000000</double>
+         </property>
+         <property name="singleStep">
+          <double>0.200000000000000</double>
+         </property>
+         <property name="value">
+          <double>1.000000000000000</double>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="Line" name="line_5">
+     <property name="orientation">
+      <enum>Qt::Orientation::Horizontal</enum>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QCheckBox" name="chkBxOmitDeformable">
+     <property name="text">
+      <string>Rigid only</string>
+     </property>
+    </widget>
+   </item>
+   <item>
     <layout class="QHBoxLayout" name="horizontalLayout_3">
      <item>
       <widget class="QLabel" name="label">
@@ -201,7 +284,7 @@
         <number>100000</number>
        </property>
        <property name="value">
-        <number>100</number>
+        <number>200</number>
        </property>
       </widget>
      </item>
@@ -222,30 +305,41 @@
         <number>100000</number>
        </property>
        <property name="value">
-        <number>400</number>
+        <number>100</number>
        </property>
       </widget>
      </item>
     </layout>
    </item>
    <item>
-    <widget class="QCommandLinkButton" name="btnStartStacking">
-     <property name="text">
-      <string>Start stacking</string>
-     </property>
-    </widget>
+    <layout class="QHBoxLayout" name="horizontalLayout_5">
+     <item>
+      <widget class="QPushButton" name="btnEditParameterFiles">
+       <property name="text">
+        <string>Edit elastix parameter files</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QCommandLinkButton" name="btnStartStacking">
+       <property name="text">
+        <string>Start stacking</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
    </item>
    <item>
     <widget class="Line" name="line_4">
      <property name="orientation">
-      <enum>Qt::Horizontal</enum>
+      <enum>Qt::Orientation::Horizontal</enum>
      </property>
     </widget>
    </item>
    <item>
     <spacer name="verticalSpacer">
      <property name="orientation">
-      <enum>Qt::Vertical</enum>
+      <enum>Qt::Orientation::Vertical</enum>
      </property>
      <property name="sizeHint" stdset="0">
       <size>
@@ -258,15 +352,23 @@
    <item>
     <widget class="QLabel" name="label_4">
      <property name="text">
-      <string>Export all centroids as 3D NRRD files:</string>
+      <string>Export stack data:</string>
      </property>
     </widget>
    </item>
    <item>
-    <widget class="QmitkSingleNodeSelectionWidget" name="centroidListSelector" native="true"/>
+    <widget class="QmitkSingleNodeSelectionWidget" name="stackImageSelector" native="true">
+     <property name="toolTip">
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Select a SpectrumImage. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+     </property>
+    </widget>
    </item>
    <item>
-    <widget class="QmitkSingleNodeSelectionWidget" name="stackImageSelector" native="true"/>
+    <widget class="QmitkSingleNodeSelectionWidget" name="centroidListSelector" native="true">
+     <property name="toolTip">
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Select a list of centroids. For each centroid a 3D stack ion image  is generated and stored on disk.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+     </property>
+    </widget>
    </item>
    <item>
     <widget class="QCommandLinkButton" name="btnStartStackExport">
