@@ -188,6 +188,9 @@ std::shared_ptr<m2::ElxRegistrationHelper> m2Reconstruction3D::RegistrationStep(
   fixedImage = fixedTransformer->WarpImage(fixedImage);
   
   std::vector<std::string> parameters = GetParameters();
+  if(m_Controls.chkBxRigidOnly->isChecked()){
+    parameters.pop_back(); // remove deformable parameters
+  }
   
   
   // start of the registration procedure
@@ -518,32 +521,32 @@ void m2Reconstruction3D::OnStartExport(){
     mitk::ProgressBar::GetInstance()->Progress();
   });
   
-  auto intervals = dynamic_cast<m2::IntervalVector*>(centroidsNode->GetData());
-  mitk::ProgressBar::GetInstance()->AddStepsToDo(intervals->GetIntervals().size());
-  auto stackImage = dynamic_cast<m2::SpectrumImageStack*>(stackImageNode->GetData());
   // auto intervals = dynamic_cast<m2::IntervalVector*>(centroidsNode->GetData());
-  for(std::shared_ptr<m2::ElxRegistrationHelper> t : stackImage->GetSliceTransformers()){
-    if(t->GetDeformationField()){
-      auto prop = t->GetMovingImage()->GetPropertyList()->GetProperty("path");
-      if(prop){
-        auto path = prop->GetValueAsString();
-        if(path.empty()) continue;
+  // mitk::ProgressBar::GetInstance()->AddStepsToDo(intervals->GetIntervals().size());
+  // auto stackImage = dynamic_cast<m2::SpectrumImageStack*>(stackImageNode->GetData());
+  // auto intervals = dynamic_cast<m2::IntervalVector*>(centroidsNode->GetData());
+  // for(std::shared_ptr<m2::ElxRegistrationHelper> t : stackImage->GetSliceTransformers()){
+    // if(t->GetDeformationField()){
+      // auto prop = t->GetMovingImage()->GetPropertyList()->GetProperty("path");
+      // if(prop){
+      //   auto path = prop->GetValueAsString();
+      //   if(path.empty()) continue;
         
-        auto pos = path.find_last_of("/");
-        if(pos != std::string::npos){
-          auto fileName = path.substr(pos + 1);
-          auto fileNameWithoutExtension = fileName.substr(0, fileName.find_last_of("."));
-          mitk::Image::Pointer deformationfield = t->GetDeformationField();
-          auto node = mitk::DataNode::New();
-          node->SetData(deformationfield);
-          node->SetName(fileNameWithoutExtension + ".def");
-          auto ref = GetDataStorage()->GetNamedNode(fileNameWithoutExtension);
-          GetDataStorage()->Add(node, ref);
+        // auto pos = path.find_last_of("/");
+        // if(pos != std::string::npos){
+          // auto fileName = path.substr(pos + 1);
+          // auto fileNameWithoutExtension = fileName.substr(0, fileName.find_last_of("."));
+          // mitk::Image::Pointer deformationfield = t->GetDeformationField();
+          // auto node = mitk::DataNode::New();
+          // node->SetData(deformationfield);
+          // node->SetName(fileNameWithoutExtension + ".def");
+          // auto ref = GetDataStorage()->GetNamedNode(fileNameWithoutExtension);
+          // GetDataStorage()->Add(node, ref);
               
-        }
-      }
-    }
-  }
+        // }
+      // }
+  //   }
+  // }
   
   // Start the export
   m_ExportProcessFutureWatcher.setFuture(QtConcurrent::run(

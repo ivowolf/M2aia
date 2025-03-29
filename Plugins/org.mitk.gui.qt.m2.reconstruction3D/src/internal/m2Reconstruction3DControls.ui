@@ -260,7 +260,7 @@
     </widget>
    </item>
    <item>
-    <widget class="QCheckBox" name="chkBxOmitDeformable">
+    <widget class="QCheckBox" name="chkBxRigidOnly">
      <property name="text">
       <string>Rigid only</string>
      </property>
