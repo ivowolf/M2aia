@@ -4,7 +4,7 @@
     <view id="org.mitk.views.docker.sklearn"
           name="Sklearn View"
           class="QmitkSklearnView"
-          category="Spectrum imaging (Docker)"
+          category="Spectral Imaging (Docker)"
           icon="resources/logo.svg" />
   </extension>
 </plugin>

@@ -4,7 +4,7 @@
     <view id="org.mitk.views.docker.peaklearning"
           name="PeakLearning View"
           class="QmitkPeakLearningView"
-          category="Spectrum imaging (Docker)"
+          category="Spectral Imaging (Docker)"
           icon="resources/logo.svg" />
   </extension>
 </plugin>

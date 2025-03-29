@@ -4,7 +4,7 @@
     <view id="org.mitk.views.m2.datacompression"
           name="Data Compression"
           class="QmitkDataCompressionView"
-          category="Spectrum imaging"
+          category="Spectral Imaging"
           icon="resources/logo.svg" />
   </extension>
 </plugin>
