@@ -242,7 +242,7 @@ namespace m2
     std::vector<float> ints, intsMasked;
 
     // Output file stream for ibd
-    const auto *input = static_cast<const m2::ImzMLSpectrumImage *>(this->GetInput());
+    const auto *input = static_cast<const m2::SpectrumImage *>(this->GetInput());
     // auto nonConst_input = const_cast<m2::ImzMLSpectrumImage *>(input);
     mitk::ImagePixelReadAccessor<mitk::LabelSetImage::PixelType> macc(input->GetMaskImage());
 

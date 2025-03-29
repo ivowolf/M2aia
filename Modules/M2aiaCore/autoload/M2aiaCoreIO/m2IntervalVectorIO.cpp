@@ -52,13 +52,13 @@ namespace m2
         return;
     }
 
-    std::array<std::string, 3> position;
-    if(auto prop = input->GetProperty("m2aia.spectrum.position.x"))
-      position[0] = prop->GetValueAsString();
-    if(auto prop = input->GetProperty("m2aia.spectrum.position.y"))
-      position[1] = prop->GetValueAsString();
-    if(auto prop = input->GetProperty("m2aia.spectrum.position.z"))
-      position[2] = prop->GetValueAsString();
+    // std::array<std::string, 3> position;
+    // if(auto prop = input->GetProperty("m2aia.spectrum.position.x"))
+    //   position[0] = prop->GetValueAsString();
+    // if(auto prop = input->GetProperty("m2aia.spectrum.position.y"))
+    //   position[1] = prop->GetValueAsString();
+    // if(auto prop = input->GetProperty("m2aia.spectrum.position.z"))
+    //   position[2] = prop->GetValueAsString();
 
     // file << "[spectrum position] " << boost::algorithm::join(position, " ") << "\n"; 
     file << "center,max,min,mean\n";

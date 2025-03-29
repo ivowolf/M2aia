@@ -499,13 +499,15 @@ void m2::ImzMLSpectrumImageSource<MassAxisType, IntensityType>::InitializeNormal
   m2::NormalizationStrategyType type)
 {
   
-  if(p->GetNormalizationImageStatus(type)) 
+  if(p->GetNormalizationImageStatus(type)){
+    MITK_WARN << "The normalization image is already initialized. " << "type " << m2::to_string(type);
     return;
+  }
 
   // initialize the normalization iamge
   auto image = p->GetNormalizationImage(type);
-  auto normImageRef = p->GetNormalizationImage(m2::NormalizationStrategyType::None);
-  image->Initialize(normImageRef);
+  // auto normImageRef = p->GetNormalizationImage(m2::NormalizationStrategyType::None);
+  // image->Initialize(normImageRef);
   
   // create a write accessor
   using WriteAccessorType = mitk::ImagePixelWriteAccessor<NormImagePixelType, 3>;
@@ -893,21 +895,14 @@ void m2::ImzMLSpectrumImageSource<MassAxisType, IntensityType>::InitializeGeomet
   }
 
   
-  {
-    // Initialize image pointer for all normalization strategies
-    for (auto type :  m2::NormalizationStrategyTypeList)
-    {
-      auto normImage = mitk::Image::New();
-      p->SetNormalizationImage(normImage, type);
-      p->SetNormalizationImageStatus(type, false);
-    }
-  }
-
   
-  {
+  
+  
+  for (auto type :  m2::NormalizationStrategyTypeList){
     // Create a reference image for normalization images
-    auto normImage = p->GetNormalizationImage(m2::NormalizationStrategyType::None);
-
+    auto normImage = mitk::Image::New();
+    
+    
     using LocalImageType = itk::Image<m2::NormImagePixelType, 3>;
     auto caster = itk::CastImageFilter<ImageType, LocalImageType>::New();
     caster->SetInput(itkIonImage);
@@ -915,10 +910,13 @@ void m2::ImzMLSpectrumImageSource<MassAxisType, IntensityType>::InitializeGeomet
     normImage->InitializeByItk(caster->GetOutput());
     
     mitk::ImagePixelWriteAccessor<m2::NormImagePixelType, 3> acc(normImage);
-    std::memset(acc.GetData(), 1, imageSize[0] * imageSize[1] * imageSize[2] * sizeof(m2::NormImagePixelType));
+    std::memset(acc.GetData(), 1.0, imageSize[0] * imageSize[1] * imageSize[2] * sizeof(m2::NormImagePixelType));
     
-    p->SetNormalizationImageStatus(m2::NormalizationStrategyType::None, true);
+    p->SetNormalizationImage(normImage, type);
+    p->SetNormalizationImageStatus(type, false);
   }
+
+  // p->SetNormalizationImageStatus(m2::NormalizationStrategyType::None, true);
 
   // mitk::ImagePixelWriteAccessor<m2::DisplayImagePixelType, 3> acc(p);
   // acc.SetPixelByIndex({0, 0, 0}, 1);
@@ -940,13 +938,12 @@ void m2::ImzMLSpectrumImageSource<MassAxisType, IntensityType>::InitializeImageA
   //////////---------------------------
   const auto spectrumType = p->GetSpectrumType();
   const auto currentType = p->GetNormalizationStrategy();
-  if (p->GetNormalizationImageStatus(currentType) == false)
+  if (!p->GetNormalizationImageStatus(currentType))
   {
-    MITK_INFO << "First access to the normalization image: "
-              << m2::NormalizationStrategyTypeNames.at((unsigned int)currentType);
     p->InitializeNormalizationImage(currentType);
   }
-
+  
+  MITK_INFO << "Use Normalization Image [" + m2::to_string(currentType) + " " + std::to_string(p->GetNormalizationImageStatus(currentType)) +"] for initialization";
 
   if (spectrumType.Format == m2::SpectrumFormat::ProcessedProfile)
     InitializeImageAccessProcessedProfile();
@@ -1101,6 +1098,7 @@ void m2::ImzMLSpectrumImageSource<MassAxisType, IntensityType>::InitializeImageA
           try
           {
             nFac = accNorm->GetPixelByIndex(spectrum.index);
+            MITK_INFO << "Normalization factor: " << nFac <<  " " << spectrum.index;
             // Signal processing
             std::transform(
               std::begin(ints), std::end(ints), std::begin(ints), [&nFac](const auto &a) { return a / nFac; });
@@ -1268,17 +1266,8 @@ void m2::ImzMLSpectrumImageSource<MassAxisType, IntensityType>::InitializeImageA
 
 template <class MassAxisType, class IntensityType>
 void m2::ImzMLSpectrumImageSource<MassAxisType, IntensityType>::InitializeImageAccessProcessedData()
-{
-  // initialize normalization image accessor
+{    
   const auto currentType = p->GetNormalizationStrategy();
-  if (!p->GetNormalizationImageStatus(currentType))
-  {
-    // MITK_INFO << "First access to the normalization image: "
-    //           << m2::NormalizationStrategyTypeNames.at((unsigned int)currentType);
-    p->InitializeNormalizationImage(currentType);
-    // p->SetNormalizationImageStatus(currentType, true);
-  }
-
   using NormImageReadAccess = mitk::ImagePixelReadAccessor<NormImagePixelType, 3>;
   NormImageReadAccess accNorm(p->GetNormalizationImage(currentType));
   std::vector<std::list<m2::Interval>> peaksT(p->GetNumberOfThreads());
