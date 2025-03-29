@@ -30,12 +30,12 @@ set(target_libraries
   org_mitk_gui_qt_m2_reconstruction3D
   org_mitk_gui_qt_m2_Position
   # org_mitk_gui_qt_m2_registration
-  org_mitk_gui_qt_matchpoint_algorithm_browser
-  org_mitk_gui_qt_matchpoint_algorithm_control
-  org_mitk_gui_qt_matchpoint_mapper
-  org_mitk_gui_qt_matchpoint_manipulator
+  # org_mitk_gui_qt_matchpoint_algorithm_browser
+  # org_mitk_gui_qt_matchpoint_algorithm_control
+  # org_mitk_gui_qt_matchpoint_mapper
+  # org_mitk_gui_qt_matchpoint_manipulator
   org_mitk_gui_qt_matchpoint_evaluator
-  org_mitk_gui_qt_matchpoint_visualizer
+  # org_mitk_gui_qt_matchpoint_visualizer
   # org_mitk_gui_qt_dicombrowser
   # org_mitk_gui_qt_dicominspector
 )
