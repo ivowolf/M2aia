@@ -63,6 +63,10 @@ Eigen::VectorXf m2::PcaImageFilter::GetMeanImage(){
   return m_MeanImage;
 }
 
+Eigen::MatrixXf m2::PcaImageFilter::GetLoadings(){
+  return m_Loadings;
+}
+
 void m2::PcaImageFilter::GenerateData()
 {
   auto timer = m2::Timer("PCA - Generate data ...");
@@ -80,6 +84,16 @@ void m2::PcaImageFilter::GenerateData()
 
   const Eigen::MatrixXf &U = svd.matrixU();
   m_EigenImageMatrix = U;
+
+  // Compute PCA loadings (eigenvectors scaled by singular values)
+  Eigen::MatrixXf m_Loadings = svd.matrixV() * svd.singularValues().asDiagonal();
+  MITK_INFO << "PCA Loadings: " << m_Loadings;
+
+  // Output PCA loadings for debugging or further use
+  for (int i = 0; i < m_Loadings.cols(); ++i)
+  {
+    MITK_INFO << "Loading for PC" << i + 1 << ": " << m_Loadings.col(i).transpose();
+  }
 
   auto eigenIonVectorImage = initializeItkVectorImage(m_NumberOfComponents);
   m2::DisplayImagePixelType *data;
