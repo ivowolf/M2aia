@@ -1098,7 +1098,7 @@ void m2::ImzMLSpectrumImageSource<MassAxisType, IntensityType>::InitializeImageA
           try
           {
             nFac = accNorm->GetPixelByIndex(spectrum.index);
-            MITK_INFO << "Normalization factor: " << nFac <<  " " << spectrum.index;
+            // MITK_INFO << "Normalization factor: " << nFac <<  " " << spectrum.index;
             // Signal processing
             std::transform(
               std::begin(ints), std::end(ints), std::begin(ints), [&nFac](const auto &a) { return a / nFac; });
