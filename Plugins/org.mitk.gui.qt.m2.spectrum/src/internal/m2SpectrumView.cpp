@@ -238,7 +238,7 @@ void m2SpectrumView::OnMassRangeChanged(qreal x, qreal tol)
 
 void m2SpectrumView::OnDataModified(const itk::Object *caller, const itk::EventObject &)
 {
-  MITK_INFO << "Test";
+  // MITK_INFO << "Test";
   if (auto node = dynamic_cast<const mitk::DataNode *>(caller))
   {
     if (node->IsVisible(nullptr)){
@@ -429,11 +429,11 @@ void m2SpectrumView::NodeAdded(const mitk::DataNode *node)
     m_xAxis->setRange(m_GlobalMinimumX, m_GlobalMaximumX);
     m_yAxis->setRange(m_LocalMinimumY, m_LocalMaximumY*1.1);
      
-    MITK_INFO << " =============================== ";
-    MITK_INFO << m_LocalMinimumX << " " << m_LocalMaximumX;
-    MITK_INFO << m_LocalMinimumY << " " << m_LocalMaximumY;
-    MITK_INFO << m_GlobalMinimumX << " " << m_GlobalMaximumX;
-    MITK_INFO << m_GlobalMinimumY << " " << m_GlobalMaximumY;
+    // MITK_INFO << " =============================== ";
+    // MITK_INFO << m_LocalMinimumX << " " << m_LocalMaximumX;
+    // MITK_INFO << m_LocalMinimumY << " " << m_LocalMaximumY;
+    // MITK_INFO << m_GlobalMinimumX << " " << m_GlobalMaximumX;
+    // MITK_INFO << m_GlobalMinimumY << " " << m_GlobalMaximumY;
     // m_yAxis->setRange(m_GlobalMinimumY, m_GlobalMaximumY*1.1);
     
     QObject::connect(m_yAxis, SIGNAL(rangeChanged(qreal, qreal)), this, SLOT(OnRangeChangedAxisY(qreal, qreal)));
@@ -597,7 +597,7 @@ void m2SpectrumView::UpdateCurrentMinMaxY()
       continue;
     }
 
-    MITK_INFO << "UpdateCurrentMinMaxY: " << kv.first->GetName();
+    // MITK_INFO << "UpdateCurrentMinMaxY: " << kv.first->GetName();
     const auto xs = kv.second->xs();
     const auto ys = kv.second->ys();
     auto lb = std::lower_bound(xs.begin(), xs.end(), m_xAxis->min());

@@ -102,7 +102,7 @@ void m2::SeriesDataProvider::InitializeLoDData() {
   }
   else
   {
-    MITK_INFO << "Profile = " << (to_underlying(m_Format) & to_underlying(m2::SpectrumFormat::Profile));
+    // MITK_INFO << "Profile = " << (to_underlying(m_Format) & to_underlying(m2::SpectrumFormat::Profile));
     m_DataLoD.clear();
     m_xs = m_IntervalVector->GetXMean();
     m_ys = m_IntervalVector->GetYMean(); // Critical?
@@ -136,7 +136,7 @@ void m2::SeriesDataProvider::GenerateSeriesDataWithinRange(double x1, double x2)
   }
 
   auto level = FindLoD(x1, x2); // always 0 for centroid data
-  MITK_INFO << "Level: " << level;
+  // MITK_INFO << "Level: " << level;
   const auto &currentData = m_DataLoD[level];
   auto lower = std::lower_bound(std::begin(currentData),
                                 std::end(currentData),
@@ -167,8 +167,8 @@ void m2::SeriesDataProvider::GenerateSeriesDataWithinRange(double x1, double x2)
       insert = QPointF{lower->x(), lower->y()};
     }
   }
-  MITK_INFO << "Replaced";
-  MITK_INFO << m_Series->points().size();
+  // MITK_INFO << "Replaced";
+  // MITK_INFO << m_Series->points().size();
   m_Series->replace(seriesData);
 }
 
@@ -231,7 +231,7 @@ int m2::SeriesDataProvider::FindLoD(double xMin, double xMax) const
   auto *preferences = preferencesService->GetSystemPreferences();
   auto pointsWanted = preferences->GetInt("m2aia.view.spectrum.bins", 15000);
 
-  MITK_INFO << "Points wanted: " << pointsWanted;
+  // MITK_INFO << "Points wanted: " << pointsWanted;
 
   int level, levelIndex = 0;
   const auto wantedDensity = pointsWanted / double(xMax - xMin);
