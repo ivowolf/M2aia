@@ -119,9 +119,9 @@ namespace m2
 
   template <typename InputIterator, typename MaskIterator>
   double StdDev(InputIterator first,
-                          InputIterator last,
-                          MaskIterator first_mask,
-                          double mean)
+                InputIterator last,
+                MaskIterator first_mask,
+                double mean)
   {
     auto maskIt = first_mask;
     double N = accumulate_if(
@@ -136,9 +136,6 @@ namespace m2
       [mean](auto s, auto val) { return s + std::pow(val - mean, 2); },
       [&maskIt](auto) { return *maskIt++ > 0; });
     auto stddev = std::sqrt(sum / N);
-    if(stddev<=0) {
-      MITK_ERROR << " stddev defect " << stddev << " " << sum << " " << N;
-    }
     return stddev;
   }
 
