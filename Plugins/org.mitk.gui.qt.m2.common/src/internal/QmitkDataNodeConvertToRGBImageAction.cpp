@@ -53,6 +53,7 @@ void QmitkDataNodeConvertToRGBImageAction::InitializeAction()
           if (mitk::Image::Pointer image = dynamic_cast<mitk::Image *>(referenceNode->GetData()))
           {       
             if(image->GetPixelType().GetNumberOfComponents()==3){
+
               auto newImage = ConvertMitkVectorImageToRGB(image);
               auto dataNodeNew = mitk::DataNode::New();
               dataNodeNew->SetData(newImage);

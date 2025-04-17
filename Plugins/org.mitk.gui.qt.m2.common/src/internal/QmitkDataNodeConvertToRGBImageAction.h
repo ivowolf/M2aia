@@ -18,12 +18,17 @@ found in the LICENSE file.
 
 #include <itkImageRegionIterator.h>
 #include <itkMinimumMaximumImageCalculator.h>
+#include <itkRescaleIntensityImageFilter.h>
+#include <itkVectorIndexSelectionCastImageFilter.h>
 
 #include <mitkDataNode.h>
 #include <mitkImage.h>
+#include <itkComposeImageFilter.h>
 #include <mitkImageCast.h>
 #include <mitkImageAccessByItk.h>
 #include <mitkImagePixelWriteAccessor.h>
+#include <mitkImagePixelReadAccessor.h>
+#include <mitkITKImageImport.h>
 // qt
 #include <QAction>
 
@@ -44,88 +49,110 @@ protected:
 
   using RGBPixel = itk::RGBPixel<unsigned char>;
 
-  static mitk::Image::Pointer ConvertMitkVectorImageToRGB(mitk::Image::Pointer vImage)
+  template <typename TPixel, unsigned int VDimensions>
+static void _ConvertToRGB(const itk::VectorImage<TPixel, VDimensions>* image, double min, double max, std::vector<mitk::Image::Pointer>& result)
+  {
+    typedef itk::VectorImage<TPixel, VDimensions> VectorImageType;
+    typedef itk::Image<TPixel, VDimensions> ImageType;
+    typedef itk::Image<unsigned char, VDimensions> RGBChannelImageType;
+    typedef itk::VectorIndexSelectionCastImageFilter<VectorImageType, ImageType> VectorIndexSelectorType;
+
+    std::vector<typename RGBChannelImageType::Pointer> rgbChannelImages;
+    auto numberOfLayers = image->GetVectorLength();
+    for (decltype(numberOfLayers) layer = 0; layer < numberOfLayers; ++layer)
     {
+      auto layerSelector = VectorIndexSelectorType::New();
+      layerSelector->SetInput(image);
+      layerSelector->SetIndex(layer);
+      layerSelector->Update();
+
+      typedef itk::RescaleIntensityImageFilter<ImageType, RGBChannelImageType> RescaleFilterType;
+      auto rescaler = RescaleFilterType::New();
+      rescaler->SetInput(layerSelector->GetOutput());
+      rescaler->SetOutputMinimum(min);
+      rescaler->SetOutputMaximum(max);
+      rescaler->Update();
       
-
-      // AccessVectorFixedDimensionByItk(vImage, ([](auto itkImage){
-      //   using ImageType = typename std::remove_ptr<decltype(itkImage)>::type;
-      //   using PixelType = typename ImageType::PixelType;
-        
-      //   auto region =  itkImage->GetLargestPossibleRegion();
-      //   itk::ImageRegionConstIterator<ImageType> it(itkImage, region);
-        
-      //   std::vector<float> minValues(3, std::numeric_limits<float>::max());
-      //   std::vector<float> maxValues(3, std::numeric_limits<float>::lowest());
-
-      //   for (it.GoToBegin(); !it.IsAtEnd(); ++it) {
-      //       PixelType pixel = it.Get();
-      //       for (unsigned int i = 0; i < numComponents; ++i) {
-      //           if (pixel[i] < minValues[i]) minValues[i] = pixel[i];
-      //           if (pixel[i] > maxValues[i]) maxValues[i] = pixel[i];
-      //       }
-      //   }
-      // })
-      // , 3);
-
-      
-      mitk::Image::Pointer result;
-
-
-      itk::VectorImage<unsigned char, 3>::Pointer vectorImage;
-      mitk::CastToItkImage(vImage, vectorImage);
-      mitk::CastToMitkImage(ConvertVectorImageToRGB(vectorImage), result);
-      return result;
+      rgbChannelImages.push_back(rescaler->GetOutput());
+      mitk::Image::Pointer layerImage;
+      mitk::CastToMitkImage(rescaler->GetOutput(), layerImage);
+      result.push_back(layerImage);
     }
 
-    /*This function casts a itk vector Image with vector length of 3, to a RGB itk Image. The buffer of the
-      vector image is copied to the RGB image.*/
-    static itk::Image<itk::RGBPixel<unsigned char>, 3>::Pointer ConvertVectorImageToRGB(
-      itk::VectorImage<unsigned char, 3>::Pointer vectorImage)
+    typedef itk::RGBPixel<unsigned char>         RGBPixelType;
+    typedef itk::Image<RGBPixelType, VDimensions>    RGBImageType;
+
+    typedef itk::ComposeImageFilter<RGBChannelImageType, RGBImageType> ComposeFilterType;
+    auto composer = ComposeFilterType::New();
+    composer->SetInput1(rgbChannelImages[0]);
+    composer->SetInput2(rgbChannelImages[1]);
+    composer->SetInput3(rgbChannelImages[2]);
+    composer->Update();
+
+        
+    typename itk::Image<RGBPixel, VDimensions>::Pointer rgbImage = itk::Image<RGBPixel, VDimensions>::New();
+    
+    typename itk::Image<RGBPixel, VDimensions>::IndexType start;
+    start[0] = 0;
+    start[1] = 0;
+    start[2] = 0;
+    
+    typename itk::Image<RGBPixel, VDimensions>::SizeType size;
+    auto dimensions = composer->GetOutput()->GetLargestPossibleRegion().GetSize();
+    size[0] = dimensions[0];
+    size[1] = dimensions[1];
+    size[2] = dimensions[2];
+    typename itk::Image<RGBPixel, VDimensions>::RegionType region;
+    region.SetSize(size);
+    region.SetIndex(start);
+    
+    rgbImage->SetRegions(region);
+    rgbImage->Allocate();
+    
+    rgbImage->SetOrigin(composer->GetOutput()->GetOrigin());
+    rgbImage->SetSpacing(composer->GetOutput()->GetSpacing());
+    rgbImage->SetDirection(composer->GetOutput()->GetDirection());
+   
+   
+   
+    memcpy(
+      rgbImage->GetBufferPointer(), composer->GetOutput()->GetBufferPointer(), sizeof(RGBPixel) * size[0] * size[1] * size[2]);
+
+    mitk::Image::Pointer rgbImageMitk;
+    mitk::CastToMitkImage(rgbImage, rgbImageMitk);
+    
+    result.push_back(rgbImageMitk);
+  }
+
+ static std::vector<mitk::Image::Pointer> ConvertToRGB(const mitk::Image* vecImage)
+  {
+    if (nullptr == vecImage)
     {
-      itk::Image<RGBPixel, 3>::Pointer rgbImage = itk::Image<RGBPixel, 3>::New();
+      mitkThrow() << "Invalid usage; nullptr passed to SplitVectorImage.";
+    }
 
-      itk::Image<RGBPixel, 3>::IndexType start;
-      start[0] = 0;
-      start[1] = 0;
-      start[2] = 0;
+    if (vecImage->GetChannelDescriptor().GetPixelType().GetPixelType() != itk::IOPixelEnum::VECTOR)
+    {
+      mitkThrow() << "Invalid usage of SplitVectorImage; passed image is not a vector image. Present pixel type: "<< vecImage->GetChannelDescriptor().GetPixelType().GetPixelTypeAsString();
+    }
 
-      itk::Image<RGBPixel, 3>::SizeType size;
-      auto dimensions = vectorImage->GetLargestPossibleRegion().GetSize();
-      size[0] = dimensions[0];
-      size[1] = dimensions[1];
-      size[2] = dimensions[2];
-      itk::Image<RGBPixel, 3>::RegionType region;
-      region.SetSize(size);
-      region.SetIndex(start);
+    std::vector<mitk::Image::Pointer> result;
+    AccessVectorPixelTypeByItk_n(vecImage, _ConvertToRGB, (0.0, 255.0, result));
+    
 
-      rgbImage->SetRegions(region);
-      rgbImage->Allocate();
+    for (auto image : result)
+    {
+      image->SetTimeGeometry(vecImage->GetTimeGeometry()->Clone());
+    }
 
-      rgbImage->SetOrigin(vectorImage->GetOrigin());
-      rgbImage->SetSpacing(vectorImage->GetSpacing());
-      rgbImage->SetDirection(vectorImage->GetDirection());
+    return result;
+  }
 
-      itk::ImageRegionIterator<itk::Image<RGBPixel, 3>> imageIterator(rgbImage, rgbImage->GetRequestedRegion());
-      imageIterator.GoToBegin();
-      auto pixel = RGBPixel();
-      pixel.SetRed(0);
-      pixel.SetBlue(0);
-      pixel.SetGreen(0);
+  static mitk::Image::Pointer ConvertMitkVectorImageToRGB(mitk::Image::Pointer vImage)
+    {
 
-      while (!imageIterator.IsAtEnd())
-      {
-        imageIterator.Set(pixel);
-        ++imageIterator;
-      }
-
-      
-
-      memcpy(
-        rgbImage->GetBufferPointer(), vectorImage->GetBufferPointer(), sizeof(RGBPixel) * size[0] * size[1] * size[2]);
-
-
-      return rgbImage;
+      auto results = ConvertToRGB(vImage.GetPointer());
+      return results[3];
     }
 
 };
