@@ -17,51 +17,104 @@ See LICENSE.txt for details.
 #include <m2KMeansImageFilter.h>
 #include <m2SpectrumImage.h>
 #include <mitkImage.h>
+#include <mitkImageAccessByItk.h>
 #include <mitkImageCast.h>
 #include <mitkImagePixelReadAccessor.h>
 #include <mitkImagePixelWriteAccessor.h>
 #include <mitkLabelSetImage.h>
-#include <mitkImageAccessByItk.h>
 #include <mitkProgressBar.h>
 
 // OpenMP
 #include <omp.h>
+
+
+// Function to calculate Euclidean distance between two points
+double euclideanDistance(const Eigen::VectorXd &point1, const Eigen::VectorXd &point2)
+{
+  return (point1 - point2).norm();
+}
+
+// Function to calculate correlation distance between two points
+double correlationDistance(const Eigen::VectorXd &point1, const Eigen::VectorXd &point2)
+{
+  double mean1 = point1.mean();
+  double mean2 = point2.mean();
+  double numerator = (point1.array() - mean1).matrix().dot((point2.array() - mean2).matrix());
+  double denominator = std::sqrt((point1.array() - mean1).square().sum() * (point2.array() - mean2).square().sum());
+  return 1.0 - (numerator / denominator);
+}
+
+// Function to calculate cosine similarity between two points
+double cosineSimilarity(const Eigen::VectorXd &point1, const Eigen::VectorXd &point2)
+{
+  double dotProduct = point1.dot(point2);
+  double norm1 = point1.norm();
+  double norm2 = point2.norm();
+  return dotProduct / (norm1 * norm2);
+}
+
+
+double m2::KMeansImageFilter::ComputeDistance(const Eigen::VectorXd &point1, const Eigen::VectorXd &point2) const
+{
+  switch (m_DistanceMetric)
+  {
+    case DistanceMetric::EUCLIDEAN:
+      return euclideanDistance(point1, point2);
+    case DistanceMetric::CORRELATION:
+      return correlationDistance(point1, point2);
+    case DistanceMetric::COSINE:
+      return 1.0 - cosineSimilarity(point1, point2); // Convert similarity to distance
+    default:
+      return euclideanDistance(point1, point2);
+  }
+}
+
+
+// Calculate spatial distance between two pixel coordinates
+double m2::KMeansImageFilter::ComputeSpatialDistance(const itk::Index<3> &coord1, const itk::Index<3> &coord2) const
+{
+  double sum = 0.0;
+  for (int i = 0; i < 3; ++i)
+  {
+    double diff = static_cast<double>(coord1[i] - coord2[i]);
+    sum += diff * diff;
+  }
+  return std::sqrt(sum);
+}
 
 void m2::KMeansImageFilter::GenerateData()
 {
   m_ValidIndicesMap.clear();
   m_Outputs.clear();
   MITK_INFO << "Start KMeansImageFilter ....";
-  
-  if (!m_Intervals.size()){
+
+  if (!m_Intervals.size())
+  {
     MITK_INFO << "Intervals are not set";
     return;
   }
 
   for (auto [imageId, image] : m_Inputs)
   {
-    if(auto spectrumImage = dynamic_cast<m2::ImzMLSpectrumImage *>(image.GetPointer())){
-
+    if (auto spectrumImage = dynamic_cast<m2::ImzMLSpectrumImage *>(image.GetPointer()))
+    {
       if (!spectrumImage->GetImageAccessInitialized())
-      MITK_INFO << "Image access not initialized";
-      
+        MITK_INFO << "Image access not initialized";
+
       if (!spectrumImage->GetMaskImage())
-      MITK_INFO << "Mask image not set";
-      
-      
+        MITK_INFO << "Mask image not set";
+
       std::vector<itk::Index<3>> validIndices;
       auto maskImage = spectrumImage->GetMaskImage();
       mitk::ImagePixelReadAccessor<mitk::LabelSetImage::PixelType, 3> maskAcc(maskImage);
-      
+
       for (auto s : spectrumImage->GetSpectra())
-       if (maskAcc.GetPixelByIndex(s.index) != 0)
-        validIndices.push_back(s.index);
-      
+        if (maskAcc.GetPixelByIndex(s.index) != 0)
+          validIndices.push_back(s.index);
+
       m_ValidIndicesMap[imageId] = validIndices;
       MITK_INFO << "Image found with " << validIndices.size() << " valid indices";
     }
-
-    
   }
 
   auto N = std::accumulate(m_ValidIndicesMap.begin(),
@@ -71,7 +124,6 @@ void m2::KMeansImageFilter::GenerateData()
   MITK_INFO << "N: " << N;
 
   Eigen::MatrixXd data(N, m_Intervals.size());
-  
 
   MITK_INFO << "Start filling data matrix ....";
   size_t offset = 0;
@@ -99,9 +151,50 @@ void m2::KMeansImageFilter::GenerateData()
     offset += validIndices.size();
   }
 
+  MITK_INFO << "Data matrix filled ....";
+  // Normalize data
+  for (int col = 0; col < data.cols(); ++col)
+  {
+    double minVal = data.col(col).minCoeff();
+    double maxVal = data.col(col).maxCoeff();
+    if (maxVal - minVal > 0)
+      data.col(col) = (data.col(col).array() - minVal) / (maxVal - minVal);
+    else
+      data.col(col).setZero();
+  }
+
+
   MITK_INFO << "Start clustering ....";
   std::vector<int> clusterAssignments(data.rows(), -1);
-  DoKMeans(data, m_NumberOfClusters, clusterAssignments);
+  // Collect all spatial coordinates in a single vector
+  std::vector<itk::Index<3>> allCoordinates;
+  allCoordinates.reserve(N);
+  for (auto &[imageId, indices] : m_ValidIndicesMap)
+  {
+    allCoordinates.insert(allCoordinates.end(), indices.begin(), indices.end());
+  }
+
+  // Choose clustering algorithm based on selected variant
+  switch (m_KMeansVariant)
+  {
+    case KMeansVariant::STANDARD:
+    {
+      m_SpatialWeight = 0.0; // Disable spatial weighting for standard KMeans
+      DoSpatialKMeans(data, allCoordinates, m_NumberOfClusters, clusterAssignments);
+    }
+      break;
+    case KMeansVariant::SPATIAL:
+      DoSpatialKMeans(data, allCoordinates, m_NumberOfClusters, clusterAssignments);
+      break;
+    case KMeansVariant::BISECTING:
+      // DoBisectingKMeans(data, m_NumberOfClusters, clusterAssignments);
+      break;
+    default:
+    {
+      m_SpatialWeight = 0.0; // Disable spatial weighting for standard KMeans
+      DoSpatialKMeans(data, allCoordinates, m_NumberOfClusters, clusterAssignments);
+    }
+  }
 
   auto classLabelIterator = clusterAssignments.begin();
   for (auto [imageId, image] : m_Inputs)
@@ -111,7 +204,7 @@ void m2::KMeansImageFilter::GenerateData()
     auto clusteredImage = dynamic_cast<mitk::LabelSetImage *>(this->GetOutput(imageId).GetPointer());
     auto maskImage = spectrumImage->GetMaskImage();
     clusteredImage->Initialize(maskImage);
-    
+
     {
       mitk::ImagePixelWriteAccessor<mitk::LabelSetImage::PixelType, 3> c_acc(clusteredImage);
       for (auto s : m_ValidIndicesMap[imageId])
@@ -122,58 +215,88 @@ void m2::KMeansImageFilter::GenerateData()
   }
 }
 
-// Function to calculate Euclidean distance between two points
-double euclideanDistance(const Eigen::VectorXd &point1, const Eigen::VectorXd &point2)
+
+void m2::KMeansImageFilter::DoSpatialKMeans(const Eigen::MatrixXd &data,
+                                                    const std::vector<itk::Index<3>> &spatialCoordinates,
+                                                    int k,
+                                                    std::vector<int> &clusterAssignments)
 {
-  return (point1 - point2).norm();
-}
+  MITK_INFO << "Start Spectral-Spatial KMeans: rows: " << data.rows() << " cols: " << data.cols();
+  MITK_INFO << "Spatial weight: " << m_SpatialWeight;
 
-// Function to calculate correlation distance between two points
-double correlationDistance(const Eigen::VectorXd &point1, const Eigen::VectorXd &point2)
-{
-  double mean1 = point1.mean();
-  double mean2 = point2.mean();
-  double numerator = (point1.array() - mean1).matrix().dot((point2.array() - mean2).matrix());
-  double denominator = std::sqrt((point1.array() - mean1).square().sum() * (point2.array() - mean2).square().sum());
-  return 1.0 - (numerator / denominator);
-}
-
-// Function to calculate cosine similarity between two points
-double cosineSimilarity(const Eigen::VectorXd &point1, const Eigen::VectorXd &point2)
-{
-  double dotProduct = point1.dot(point2);
-  double norm1 = point1.norm();
-  double norm2 = point2.norm();
-  return dotProduct / (norm1 * norm2);
-}
-
-void m2::KMeansImageFilter::DoKMeans(const Eigen::MatrixXd &data, int k, std::vector<int> &clusterAssignments)
-{
-  // Randomly initialize centroids
-
-  MITK_INFO << "Start KMeans: rows: " << data.rows() << " cols: " << data.cols();
-  
-
-  m_Centroids = std::vector<Eigen::VectorXd>(k);
-  for (int i = 0; i < k; ++i)
+  if (spatialCoordinates.size() != static_cast<size_t>(data.rows()))
   {
-    m_Centroids[i] = data.row(rand() % data.rows());
+    MITK_ERROR << "Number of spatial coordinates doesn't match number of data points";
+    return;
   }
 
-  Eigen::VectorXd overallMean = data.colwise().mean();
+  // Create combined feature matrix including both spectral and spatial features
+  int spatialDims = 3; // x, y, z coordinates
+  Eigen::MatrixXd combinedData(data.rows(), data.cols() + spatialDims);
+
+  // Find spatial min and max for normalization
+  std::vector<double> spatialMin(spatialDims, std::numeric_limits<double>::max());
+  std::vector<double> spatialMax(spatialDims, std::numeric_limits<double>::lowest());
+
+  for (const auto &coord : spatialCoordinates)
+  {
+    for (int dim = 0; dim < spatialDims; ++dim)
+    {
+      spatialMin[dim] = std::min(spatialMin[dim], static_cast<double>(coord[dim]));
+      spatialMax[dim] = std::max(spatialMax[dim], static_cast<double>(coord[dim]));
+    }
+  }
+
+  // Calculate spatial feature scaling factor
+  // This controls how much emphasis to put on spatial proximity
+  double spatialScalingFactor = 2.0;
+
+  // Combine spectral and spatial features
+  for (int i = 0; i < data.rows(); ++i)
+  {
+    // Copy spectral data
+    combinedData.block(i, 0, 1, data.cols()) = data.row(i);
+
+    // Add scaled spatial data
+    for (int dim = 0; dim < spatialDims; ++dim)
+    {
+      // Normalize spatial coordinates to [0,1] range
+      double range = spatialMax[dim] - spatialMin[dim];
+      double normalizedCoord = (range > 0) ? (spatialCoordinates[i][dim] - spatialMin[dim]) / range : 0;
+
+      // Scale the spatial components by the spatial weight factor
+      combinedData(i, data.cols() + dim) = normalizedCoord * m_SpatialWeight * spatialScalingFactor;
+    }
+  }
+
+  // Now run standard k-means on the combined feature space
+  // Initialize centroids
+  m_Centroids.resize(k);
+  for (int i = 0; i < k; ++i)
+  {
+    int randomIndex = rand() % combinedData.rows();
+    m_Centroids[i] = combinedData.row(randomIndex);
+  }
 
   bool centroidsChanged = true;
-  while (centroidsChanged)
+  int maxIterations = 100;
+  int iteration = 0;
+
+  while (centroidsChanged && iteration < maxIterations)
   {
     centroidsChanged = false;
+    iteration++;
 
-    for (int i = 0; i < data.rows(); ++i)
+// Assign each point to closest centroid
+#pragma omp parallel for
+    for (int i = 0; i < combinedData.rows(); ++i)
     {
       double minDistance = std::numeric_limits<double>::max();
       int closestCentroid = -1;
+
       for (int j = 0; j < k; ++j)
       {
-        double distance = euclideanDistance(data.row(i), m_Centroids[j]);
+        double distance = ComputeDistance(combinedData.row(i), m_Centroids[j]);
         if (distance < minDistance)
         {
           minDistance = distance;
@@ -181,8 +304,9 @@ void m2::KMeansImageFilter::DoKMeans(const Eigen::MatrixXd &data, int k, std::ve
         }
       }
 
+      if (clusterAssignments[i] != closestCentroid)
       {
-        if (clusterAssignments[i] != closestCentroid)
+#pragma omp critical
         {
           clusterAssignments[i] = closestCentroid;
           centroidsChanged = true;
@@ -190,40 +314,34 @@ void m2::KMeansImageFilter::DoKMeans(const Eigen::MatrixXd &data, int k, std::ve
       }
     }
 
-    for (int i = 0; i < k; ++i)
+    // Update centroids
+    std::vector<Eigen::VectorXd> newCentroids(k, Eigen::VectorXd::Zero(combinedData.cols()));
+    std::vector<int> counts(k, 0);
+
+    for (int i = 0; i < combinedData.rows(); ++i)
     {
-      Eigen::VectorXd newCentroid = Eigen::VectorXd::Zero(data.cols());
-      int count = 0;
-      for (int j = 0; j < data.rows(); ++j)
-      {
-        if (clusterAssignments[j] == i)
-        {
-          newCentroid += data.row(j);
-          count++;
-        }
-      }
-      if (count > 0)
-      {
-        newCentroid /= count;
-      }
+      int cluster = clusterAssignments[i];
+      newCentroids[cluster] += combinedData.row(i);
+      counts[cluster]++;
+    }
 
+    for (int j = 0; j < k; ++j)
+    {
+      if (counts[j] > 0)
       {
-        // newCentroid = (1 - m_ShrinkageFactor) * newCentroid + m_ShrinkageFactor * overallMean;
-
-        m_Centroids[i] = newCentroid;
+        newCentroids[j] /= counts[j];
+        m_Centroids[j] = newCentroids[j];
       }
     }
 
+    MITK_INFO << "Spectral-Spatial KMeans iteration " << iteration << " completed";
   }
 
-
-  MITK_INFO << "KMeans finished";
-  MITK_INFO << "Centroids: ";
+  // Store final centroids (only the spectral part)
   for (int i = 0; i < k; ++i)
   {
-    MITK_INFO << m_Centroids[i].transpose();
+    m_Centroids[i] = m_Centroids[i].head(data.cols());
   }
 
-
-
+  MITK_INFO << "Spectral-Spatial KMeans finished after " << iteration << " iterations";
 }

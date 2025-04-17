@@ -24,10 +24,22 @@ See LICENSE.txt for details.
 
 
 // Eigen
-// #include "Eigen/Dense"
+// #include <itkeigen/Eigen/Dense>
 
 namespace m2 {
 
+// Define distance metric types
+enum class DistanceMetric {
+    EUCLIDEAN,
+    CORRELATION,
+    COSINE
+};
+
+// Define clustering algorithm types
+enum class KMeansVariant {
+    STANDARD,         // Traditional k-means
+    SPATIAL,          // Spatial k-means (incorporates pixel coordinates)
+};
 
 class M2AIADIMENSIONREDUCTION_EXPORT KMeansImageFilter : public itk::Object
 {
@@ -40,7 +52,9 @@ private:
     std::map<int, std::vector<itk::Index<3>>> m_ValidIndicesMap;
 
     double m_ShrinkageFactor = 0.1;
-
+    double m_SpatialWeight = 0.5;  // Weight for spatial component (0-1)
+    DistanceMetric m_DistanceMetric = DistanceMetric::EUCLIDEAN;
+    KMeansVariant m_KMeansVariant = KMeansVariant::STANDARD;
 
 public:
     mitkClassMacroItkParent(KMeansImageFilter, itk::Object);
@@ -52,7 +66,14 @@ public:
     itkGetMacro(NumberOfClusters, unsigned int);
     itkSetMacro(ShrinkageFactor, double);
     itkGetMacro(ShrinkageFactor, double);
-
+    itkSetMacro(SpatialWeight, double);
+    itkGetMacro(SpatialWeight, double);
+    
+    void SetDistanceMetric(DistanceMetric metric) { m_DistanceMetric = metric; }
+    DistanceMetric GetDistanceMetric() const { return m_DistanceMetric; }
+    
+    void SetKMeansVariant(KMeansVariant variant) { m_KMeansVariant = variant; }
+    KMeansVariant GetKMeansVariant() const { return m_KMeansVariant; }
 
     void GenerateData();
     
@@ -65,7 +86,6 @@ public:
         m_Intervals = intervals;
     }
     
-
     mitk::LabelSetImage::Pointer GetOutput(int idx)
     {
         if(m_Outputs.find(idx) == m_Outputs.end())
@@ -77,12 +97,17 @@ public:
  
 private:
 
-    void DoKMeans(const Eigen::MatrixXd& data, int k, std::vector<int>& clusterAssignments);
-
+    void DoSpatialKMeans(const Eigen::MatrixXd& data, 
+                        const std::vector<itk::Index<3>>& spatialCoordinates,
+                        int k, 
+                        std::vector<int>& clusterAssignments);
+    
+    double ComputeDistance(const Eigen::VectorXd& point1, const Eigen::VectorXd& point2) const;
+    double ComputeSpatialDistance(const itk::Index<3>& coord1, const itk::Index<3>& coord2) const;
+    
     std::vector<m2::Interval> m_Intervals;
     unsigned int m_NumberOfClusters = 0;
     std::vector<Eigen::VectorXd> m_Centroids;
 };
 
 } // end namespace m2
-
