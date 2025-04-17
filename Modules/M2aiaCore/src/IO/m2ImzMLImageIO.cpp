@@ -748,15 +748,30 @@ namespace m2
     auto maskPath = pathWithoutExtension + ".mask.nrrd";
     if (itksys::SystemTools::FileExists(maskPath))
     {
-      auto data = mitk::IOUtil::Load(maskPath).at(0);
-      object->SetMaskImage(dynamic_cast<mitk::Image *>(data.GetPointer()));
+      auto maskData = mitk::IOUtil::Load(maskPath).at(0);
+      if (auto maskImage = dynamic_cast<mitk::Image *>(maskData.GetPointer())){
+        if(ValidateChildImage(object, maskImage)){
+          if (auto lsImage = dynamic_cast<mitk::LabelSetImage *>(maskData.GetPointer()))
+          {
+            object->SetMaskImage(lsImage);
+          }
+          else
+          {
+            auto newLsImage = mitk::LabelSetImage::New();
+            newLsImage->InitializeByLabeledImage(maskImage);
+            object->SetMaskImage(newLsImage);
+          }
+        } 
+      }
     }
 
-    auto shiftImagePath = pathWithoutExtension + ".index_shift.nrrd";
+    auto shiftImagePath = pathWithoutExtension + ".shift.nrrd";
     if (itksys::SystemTools::FileExists(shiftImagePath))
     {
       auto data = mitk::IOUtil::Load(shiftImagePath).at(0);
       object->SetShiftImage(dynamic_cast<mitk::Image *>(data.GetPointer()));
+      data->GetGeometry()->SetOrigin(object->GetGeometry()->GetOrigin());
+      data->GetGeometry()->SetSpacing(object->GetGeometry()->GetSpacing());
     }
 
     for (auto type : m2::NormalizationStrategyTypeList)
@@ -767,6 +782,8 @@ namespace m2
       if(itksys::SystemTools::FileExists(fileName)){ 
         auto dataVector = mitk::IOUtil::Load(fileName);
         auto externalImage = dynamic_cast<mitk::Image *>(dataVector[0].GetPointer());
+        externalImage->GetGeometry()->SetOrigin(object->GetGeometry()->GetOrigin());
+        externalImage->GetGeometry()->SetSpacing(object->GetGeometry()->GetSpacing());
         object->SetNormalizationImage(externalImage, type);
         object->SetNormalizationImageStatus(type, true);
       }
