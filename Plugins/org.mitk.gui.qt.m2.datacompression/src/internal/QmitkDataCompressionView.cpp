@@ -28,6 +28,7 @@ found in the LICENSE file.
 #include <m2ImzMLImageIO.h>
 #include <m2SpectrumImageHelper.h>
 #include <m2KMeansImageFilter.h>
+#include <signal/m2SignalCommon.h>
 
 // mitk
 #include <mitkDockerHelper.h>
@@ -103,12 +104,18 @@ void QmitkDataCompressionView::CreateQtPartControl(QWidget *parent)
   m_Controls.peakListSelection->SetSelectionIsOptional(true);
   m_Controls.peakListSelection->SetEmptyInfo(QString("PeakList selection"));
   m_Controls.peakListSelection->SetPopUpTitel(QString("PeakList"));
+  
+  m_Controls.boxKMeansDistanceMetric->addItem("Euclidean", QVariant(to_underlying(m2::DistanceMetric::EUCLIDEAN)));
+  m_Controls.boxKMeansDistanceMetric->addItem("Cosine", QVariant(to_underlying(m2::DistanceMetric::COSINE)));
+  m_Controls.boxKMeansDistanceMetric->addItem("Correlation", QVariant(to_underlying(m2::DistanceMetric::CORRELATION)));
+  m_Controls.boxKMeansDistanceMetric->setCurrentIndex(0);
 
-  // Wire up the UI widgets with our functionality.
-  // connect(m_Controls.imageSelection,
-  //         &QmitkSingleNodeSelectionWidget::CurrentSelectionChanged,
-  //         this,
-  //         &QmitkDataCompressionView::OnImageChanged);
+
+  m_Controls.boxKMeansVariant->addItem("Standard", QVariant(to_underlying(m2::KMeansVariant::STANDARD)));
+  m_Controls.boxKMeansVariant->addItem("Spatial", QVariant(to_underlying(m2::KMeansVariant::SPATIAL)));
+  // m_Controls.boxKMeansVariant->addItem("Bisecting", QVariant(to_underlying(m2::KMeansVariant::BISECTING)));
+  // m_Controls.boxKMeansVariant->addItem("Spectral-Spatial", QVariant(to_underlying(m2::KMeansVariant::SPECTRAL_SPATIAL)));
+  m_Controls.boxKMeansVariant->setCurrentIndex(0);
 
   connect(m_Controls.btnRunPCA, SIGNAL(clicked()), this, SLOT(OnStartPCA()));
   connect(m_Controls.btnRunKMeans, SIGNAL(clicked()), this, SLOT(OnStartKMeans()));
@@ -161,8 +168,25 @@ void QmitkDataCompressionView::SetFocus() {}
 
 void QmitkDataCompressionView::OnStartKMeans()
 {
+
+  
+
+
+
+  auto data =m_Controls.boxKMeansDistanceMetric->itemData(m_Controls.boxKMeansDistanceMetric->currentIndex());
+  auto metricType = data.value<m2::DistanceMetric>();
+  
+  auto variantData = m_Controls.boxKMeansVariant->itemData(m_Controls.boxKMeansVariant->currentIndex());
+  auto variantType = variantData.value<m2::KMeansVariant>();
+  
+  MITK_INFO <<  to_underlying(metricType) << " " << to_underlying(variantType);
+
+
   m2::KMeansImageFilter::Pointer filter = m2::KMeansImageFilter::New();
   filter->SetNumberOfClusters(m_Controls.kmeans_clusters->value());
+  filter->SetDistanceMetric(metricType);
+  filter->SetKMeansVariant(variantType);
+  filter->SetSpatialWeight(m_Controls.spatialWeight->value());
 
   std::string vectorNodeNames = "";
   auto vectorNodes = m_Controls.peakListSelection->GetSelectedNodesStdVector();
