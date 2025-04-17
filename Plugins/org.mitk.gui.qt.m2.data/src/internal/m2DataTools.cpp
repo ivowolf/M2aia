@@ -273,7 +273,8 @@ void m2DataTools::OnApplyTiling()
     auto childNodes = this->GetDataStorage()->GetDerivations(node, predicateImage);
     for (auto child : *childNodes)
       if (auto image = dynamic_cast<mitk::Image *>(child->GetData()))
-        image->GetGeometry()->SetOrigin(origin);
+        if (image->IsInitialized())
+          image->GetGeometry()->SetOrigin(origin);
 
     // child node pointsets
     auto predicatePointSet = mitk::TNodePredicateDataType<mitk::PointSet>::New();
