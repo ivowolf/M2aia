@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>imsSpectrumControls</class>
- <widget class="QWidget" name="imsSpectrumViewControls">
+ <class>m2SpectrumViewControls</class>
+ <widget class="QWidget" name="m2SpectrumViewControls">
   <property name="enabled">
    <bool>true</bool>
   </property>
@@ -60,10 +60,10 @@
       <string notr="true"/>
      </property>
      <property name="frameShape">
-      <enum>QFrame::NoFrame</enum>
+      <enum>QFrame::Shape::NoFrame</enum>
      </property>
      <property name="frameShadow">
-      <enum>QFrame::Plain</enum>
+      <enum>QFrame::Shadow::Plain</enum>
      </property>
      <property name="sceneRect">
       <rectf>
@@ -74,7 +74,7 @@
       </rectf>
      </property>
      <property name="dragMode">
-      <enum>QGraphicsView::NoDrag</enum>
+      <enum>QGraphicsView::DragMode::NoDrag</enum>
      </property>
     </widget>
    </item>

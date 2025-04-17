@@ -666,22 +666,36 @@ void m2SpectrumView::CreateQtPartControl(QWidget *parent)
   // create GUI widgets from the Qt Designer's .ui file
   m_Controls.setupUi(parent);
 
-  QShortcut *shortcutLeft = new QShortcut(QKeySequence(Qt::Key_Left), parent);
-  QShortcut *shortcutRight = new QShortcut(QKeySequence(Qt::Key_Right), parent);
-  QShortcut *shortcutShiftLeft = new QShortcut(QKeySequence(Qt::SHIFT | Qt::Key_Left), parent);
-  QShortcut *shortcutShiftRight = new QShortcut(QKeySequence(Qt::SHIFT | Qt::Key_Right), parent);
-  QShortcut *shortcutUp = new QShortcut(QKeySequence(Qt::Key_Up), parent);
-  QShortcut *shortcutDown = new QShortcut(QKeySequence(Qt::Key_Down), parent);
+  
+  
+
+  // controlManual->setWordWrap(true);
+  // controlManual->setAlignment(Qt::AlignLeft);
+  // m_Controls.verticalLayout->addWidget(controlManual);
+  
+  // Adjustments
+  QShortcut *shortcutSHIFTLeft = new QShortcut(QKeySequence(Qt::SHIFT | Qt::Key_Left), parent);
+  QShortcut *shortcutSHIFTRight = new QShortcut(QKeySequence(Qt::SHIFT | Qt::Key_Right), parent);
+  QShortcut *shortcutSHIFTUp = new QShortcut(QKeySequence(Qt::SHIFT | Qt::Key_Up), parent);
+  QShortcut *shortcutSHIFTDown = new QShortcut(QKeySequence(Qt::SHIFT | Qt::Key_Down), parent);
+  
+  // Jump to the next image
+  QShortcut *shortcutCTRLLeft = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_Left), parent);
+  QShortcut *shortcutCTRLRight = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_Right), parent);
+  // QShortcut *shortcutCTRLSpace = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_Space), parent);
+  
+
 
   auto UIUtilsObject = m2::UIUtils::Instance();
   connect(UIUtilsObject, SIGNAL(RangeChanged(qreal, qreal)), this, SLOT(OnMassRangeChanged(qreal, qreal)));
 
-  connect(shortcutRight, SIGNAL(activated()), UIUtilsObject, SIGNAL(NextImage()));
-  connect(shortcutLeft, SIGNAL(activated()), UIUtilsObject, SIGNAL(PreviousImage()));
-  connect(shortcutShiftRight, SIGNAL(activated()), UIUtilsObject, SIGNAL(NextPeakImage()));
-  connect(shortcutShiftLeft, SIGNAL(activated()), UIUtilsObject, SIGNAL(PreviousPeakImage()));
-  connect(shortcutUp, SIGNAL(activated()), UIUtilsObject, SIGNAL(IncreaseTolerance()));
-  connect(shortcutDown, SIGNAL(activated()), UIUtilsObject, SIGNAL(DecreaseTolerance()));
+  connect(shortcutSHIFTRight, SIGNAL(activated()), UIUtilsObject, SIGNAL(NextImage()));
+  connect(shortcutSHIFTLeft, SIGNAL(activated()), UIUtilsObject, SIGNAL(PreviousImage()));
+  connect(shortcutSHIFTUp, SIGNAL(activated()), UIUtilsObject, SIGNAL(IncreaseTolerance()));
+  connect(shortcutSHIFTDown, SIGNAL(activated()), UIUtilsObject, SIGNAL(DecreaseTolerance()));
+  connect(shortcutCTRLRight, SIGNAL(activated()), UIUtilsObject, SIGNAL(NextPeakImage()));
+  // connect(shortcutCTRLSpace, SIGNAL(activated()), UIUtilsObject, SIGNAL(NextPeakImage()));
+  connect(shortcutCTRLLeft, SIGNAL(activated()), UIUtilsObject, SIGNAL(PreviousPeakImage()));
 
   CreateQChartView();
   CreateQChartViewMenu();

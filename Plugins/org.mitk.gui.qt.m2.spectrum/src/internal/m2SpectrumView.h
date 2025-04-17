@@ -91,7 +91,7 @@ protected:
   void SetFocus() override {}
 
   mitk::IPreferences * m_M2aiaPreferences;
-  Ui::imsSpectrumControls m_Controls;
+  Ui_m2SpectrumViewControls m_Controls;
   QGraphicsSimpleTextItem *m_Crosshair;
   
   std::array<unsigned int,2> m_AxisTicks = {9,4};
