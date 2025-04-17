@@ -53,6 +53,7 @@ See LICENSE.txt for details.
 #include <mitkImagePixelWriteAccessor.h>
 #include <mitkImageVtkMapper2D.h>
 #include <mitkImageAccessByItk.h>
+#include <m2ImzMLImageIO.h>
 #include <regex>
 // #include <Qm2AssociatedFilesDialog.h>
 
@@ -138,10 +139,10 @@ void m2Data::CreateQtPartControl(QWidget *parent)
               dNode->SetBoolProperty("helper object", true);
             else
             {
-              // if it should be visible in the data storage remove the helper object property
-              dNode->RemoveProperty("helper object");
               if (!image->GetNormalizationImageStatus(type))
                  image->InitializeNormalizationImage(type);
+              // if it should be visible in the data storage remove the helper object property
+              dNode->RemoveProperty("helper object");
 
               // update level window
               mitk::LevelWindow lw;
@@ -846,16 +847,10 @@ void m2Data::OnCreateShiftMap()
       shiftMapFilter->SetInput(data);
       shiftMapFilter->GenerateData();
       
-
       auto node = mitk::DataNode::New();
-      node->SetData(shiftMapFilter->GetOutput(0));
-      node->SetName("Absolute_mz_shift");
-      GetDataStorage()->Add(node);
-
-      node = mitk::DataNode::New();
       node->SetData(shiftMapFilter->GetOutput(1));
-      node->SetName("Index_mz_shift");
-      GetDataStorage()->Add(node);
+      node->SetName(dataNode->GetName() + ".shift");
+      GetDataStorage()->Add(node, dataNode);
 
     }
 }
@@ -1196,31 +1191,51 @@ void m2Data::SpectrumImageNodeAdded(const mitk::DataNode *node)
       this->GetDataStorage()->Add(helperNode, const_cast<mitk::DataNode *>(node));
     }
 
-    nodeName = itksys::SystemTools::GetFilenameWithoutLastExtension(inputLocation) + ".tSNE";
-    auto fileName = itksys::SystemTools::GetFilenamePath(inputLocation) + "/" + nodeName + ".nrrd";
-    if(itksys::SystemTools::FileExists(fileName)){
-      auto tsneImages = mitk::IOUtil::Load(fileName);
+    auto parentImage = dynamic_cast<const mitk::Image *>(node->GetData());
+
+    std::vector<std::string> suffixes = {".tSNE", ".PCA", ".UMAP"};
+    for (const auto &suffix : suffixes)
+    {
+      nodeName = itksys::SystemTools::GetFilenameWithoutLastExtension(inputLocation) + suffix;
+      auto fileName = itksys::SystemTools::GetFilenamePath(inputLocation) + "/" + nodeName + ".nrrd";
+      if (itksys::SystemTools::FileExists(fileName))
+      {
+        auto childData = mitk::IOUtil::Load(fileName)[0];
+        auto childImage = dynamic_cast<mitk::Image *>(childData.GetPointer());
+        m2::ImzMLImageIO::ValidateChildImage(childImage, parentImage);
+
+        helperNode = mitk::DataNode::New();
+        helperNode->SetName(nodeName);
+        helperNode->SetVisibility(false);
+        helperNode->SetData(childImage);
+        helperNode->SetStringProperty("m2aia.helper.image.name", (suffix.substr(1) + "Image").c_str());
+        this->GetDataStorage()->Add(helperNode, const_cast<mitk::DataNode *>(node));
+      }
+    }
+
+    // -------------- add Normalization to datastorage --------------
+    for (auto type : m2::NormalizationStrategyTypeList)
+    {
+      auto image = spectrumImage->GetNormalizationImage(type);
+      auto name = node->GetName() + "." + m2::to_string(type);
+
       helperNode = mitk::DataNode::New();
-      helperNode->SetName(nodeName);
-      helperNode->SetVisibility(false);
-      helperNode->SetData(tsneImages[0]);
-      helperNode->SetStringProperty("m2aia.helper.image.name", "tSNEImage");
+      helperNode->SetName(node->GetName() + "." + m2::to_string(type));
+      helperNode->SetBoolProperty("binary", false);
+      helperNode->SetBoolProperty("helper object", true);
+      helperNode->SetData(image); 
+      helperNode->SetStringProperty("m2aia.helper.image.normalization.name", name.c_str());
+
+      // add hidden to DS
       this->GetDataStorage()->Add(helperNode, const_cast<mitk::DataNode *>(node));
+      
+
+      if(auto checkBox = m_Controls.settings->findChild<QCheckBox *>(("ckBoxNormalizationImage" + m2::to_string(type)).c_str()))
+      emit checkBox->toggled(checkBox->isChecked());
     }
     
-    nodeName = itksys::SystemTools::GetFilenameWithoutLastExtension(inputLocation) + ".PCA";
-    fileName = itksys::SystemTools::GetFilenamePath(inputLocation) + "/" + nodeName + ".nrrd";
-    if(itksys::SystemTools::FileExists(fileName)){
-      auto pcaImages = mitk::IOUtil::Load(fileName);
-      helperNode = mitk::DataNode::New();
-      helperNode->SetName(nodeName);
-      helperNode->SetVisibility(false);
-      helperNode->SetData(pcaImages[0]);
-      helperNode->SetStringProperty("m2aia.helper.image.name", "PCAImage");
-      this->GetDataStorage()->Add(helperNode, const_cast<mitk::DataNode *>(node));
-    }
     nodeName = itksys::SystemTools::GetFilenameWithoutLastExtension(inputLocation) + ".def";
-    fileName = itksys::SystemTools::GetFilenamePath(inputLocation) + "/" + nodeName + ".nrrd";
+    auto fileName = itksys::SystemTools::GetFilenamePath(inputLocation) + "/" + nodeName + ".nrrd";
     if(itksys::SystemTools::FileExists(fileName)){
       auto images = mitk::IOUtil::Load(fileName);
       std::string index;
@@ -1248,30 +1263,7 @@ void m2Data::SpectrumImageNodeAdded(const mitk::DataNode *node)
     this->GetDataStorage()->Add(helperNode, const_cast<mitk::DataNode *>(node));
     emit m_Controls.showIndexImages->toggled(m_Controls.showIndexImages->isChecked());
 
-    // -------------- add Normalization to datastorage --------------
-    for (auto type : m2::NormalizationStrategyTypeList)
-    {
-      // clear the image data if not already initialized
-      auto image = spectrumImage->GetNormalizationImage(type);
-
-
-      auto name = node->GetName() + "." + m2::to_string(type);
-
-      helperNode = mitk::DataNode::New();
-      helperNode->SetName(node->GetName() + "." + m2::to_string(type));
-      helperNode->SetBoolProperty("binary", false);
-      helperNode->SetBoolProperty("helper object", true);
-      helperNode->SetData(image); 
-      helperNode->SetStringProperty("m2aia.helper.image.normalization.name", name.c_str());
-      helperNode->SetIntProperty("m2aia.helper.image.normalization.type", to_underlying(type));
-
-      // add hidden to DS
-      this->GetDataStorage()->Add(helperNode, const_cast<mitk::DataNode *>(node));
-      
-
-      auto checkBox = m_Controls.settings->findChild<QCheckBox *>(("ckBoxNormalizationImage" + m2::to_string(type)).c_str());
-      emit checkBox->toggled(checkBox->isChecked());
-    }
+   
 
     // -------------- add Spectra to datastorage --------------
     // color for plots in spectrum view
@@ -1353,7 +1345,7 @@ void m2Data::SpectrumImageNodeAdded(const mitk::DataNode *node)
 
     m_ResetPreventDataStorageOverload.cancel();
     m_ResetPreventDataStorageOverload.setFuture(QtConcurrent::run([](){
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));}));
+    std::this_thread::sleep_for(std::chrono::milliseconds(3000));}));
   }
 }
 
