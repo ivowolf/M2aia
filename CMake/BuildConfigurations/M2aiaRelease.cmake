@@ -13,6 +13,7 @@ set(MITK_CONFIG_PLUGINS
   org.mitk.gui.qt.segmentation
   org.mitk.gui.qt.volumevisualization
   org.mitk.gui.qt.pointsetinteraction
+  org.mitk.gui.qt.overlaymanager
   # org.mitk.gui.qt.imagenavigator
   org.mitk.gui.qt.moviemaker
   org.mitk.gui.qt.properties
@@ -27,7 +28,7 @@ set(MITK_CONFIG_PLUGINS
   org.mitk.gui.qt.m2.spectrum
   org.mitk.gui.qt.m2.peakpicking
   org.mitk.gui.qt.m2.ImzMLExport
-  org.mitk.gui.qt.m2.Reconstruction3D
+  org.mitk.gui.qt.m2.reconstruction3D
   org.mitk.gui.qt.m2.Position
   org.mitk.gui.qt.m2.registration
   org.mitk.gui.qt.matchpoint.evaluator
@@ -42,3 +43,5 @@ find_package(Doxygen REQUIRED)
 
 # Ensure that the in-application help can be build
 set(BLUEBERRY_QT_HELP_REQUIRED ON CACHE BOOL "Required Qt help documentation in plug-ins" FORCE)
+
+
