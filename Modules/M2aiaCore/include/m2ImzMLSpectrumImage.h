@@ -54,13 +54,24 @@ namespace m2
 
     itkNewMacro(Self);
 
-    itkGetConstReferenceMacro(ImzMLDataPath, std::string);
-    itkSetMacro(ImzMLDataPath, std::string);
+    std::string GetImzMLDataPath() const
+    {
+      return GetProperty("path")->GetValueAsString();
+    }
 
-    itkGetConstReferenceMacro(BinaryDataPath, std::string);
-    itkSetMacro(BinaryDataPath, std::string);
+    void SetImzMLDataPath(std::string imzMLDataPath){
+      this->SetProperty("path", mitk::StringProperty::New(imzMLDataPath));
+    }
 
-    
+    std::string GetBinaryDataPath() const
+    {
+      return GetProperty("path.binary")->GetValueAsString();
+    }
+
+    void SetBinaryDataPath(std::string binaryDataPath){
+      this->SetProperty("path.binary", mitk::StringProperty::New(binaryDataPath));
+    }
+
     /// @brief Type representing the offset from file start in bytes 
     using BinaryDataOffsetType = unsigned long long;
     
