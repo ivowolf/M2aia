@@ -186,9 +186,6 @@ void m2::KMeansImageFilter::GenerateData()
     case KMeansVariant::SPATIAL:
       DoSpatialKMeans(data, allCoordinates, m_NumberOfClusters, clusterAssignments);
       break;
-    case KMeansVariant::BISECTING:
-      // DoBisectingKMeans(data, m_NumberOfClusters, clusterAssignments);
-      break;
     default:
     {
       m_SpatialWeight = 0.0; // Disable spatial weighting for standard KMeans
