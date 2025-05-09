@@ -56,8 +56,6 @@ namespace m2
       {
         float x, y, z;
       } world;
-
-      m2::NormImagePixelType normalize = -1.0;
     };
 
     using SpectrumVectorType = std::vector<SpectrumData>;

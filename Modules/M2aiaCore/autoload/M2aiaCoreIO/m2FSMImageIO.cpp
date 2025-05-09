@@ -52,13 +52,7 @@ namespace m2
 
   mitk::IFileIO::ConfidenceLevel FSMImageIO::GetWriterConfidenceLevel() const
   {
-    if (AbstractFileIO::GetWriterConfidenceLevel() == Unsupported)
-      return Unsupported;
-    const auto *input = static_cast<const m2::ImzMLSpectrumImage *>(this->GetInput());
-    if (input)
-      return Supported;
-    else
-      return Unsupported;
+    return Unsupported;
   }
 
   void FSMImageIO::Write() { ValidateOutputLocation(); }

@@ -35,7 +35,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #pragma once
 
 #include <M2aiaCoreIOExports.h>
-#include <m2ImzMLSpectrumImage.h>
 #include <mitkAbstractFileIO.h>
 #include <mitkIOMimeTypes.h>
 #include <mitkImage.h>
