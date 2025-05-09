@@ -26,7 +26,7 @@ See LICENSE.txt for details.
 #include <boost/format.hpp>
 #include <itkRescaleIntensityImageFilter.h>
 #include <itksys/SystemTools.hxx>
-#include <m2FsmSpectrumImage.h>
+#include <m2SpectrumContainerImage.h>
 #include <m2ImzMLSpectrumImage.h>
 #include <m2IntervalVector.h>
 #include <m2SpectrumImage.h>
@@ -119,7 +119,7 @@ void m2Data::CreateQtPartControl(QWidget *parent)
   {
     const auto a = TNodePredicateDataType<m2::SpectrumImageStack>::New();
     const auto b = TNodePredicateDataType<m2::ImzMLSpectrumImage>::New();
-    const auto c = TNodePredicateDataType<m2::FsmSpectrumImage>::New();
+    const auto c = TNodePredicateDataType<m2::SpectrumContainerImage>::New();
     const auto predicate = NodePredicateOr::New(a, b, c);
     const auto nodes = this->GetDataStorage()->GetSubset(predicate);
     for (const auto &node : *nodes)
@@ -163,7 +163,7 @@ void m2Data::CreateQtPartControl(QWidget *parent)
   {
     const auto a = TNodePredicateDataType<m2::SpectrumImageStack>::New();
     const auto b = TNodePredicateDataType<m2::ImzMLSpectrumImage>::New();
-    const auto c = TNodePredicateDataType<m2::FsmSpectrumImage>::New();
+    const auto c = TNodePredicateDataType<m2::SpectrumContainerImage>::New();
     const auto predicate = NodePredicateOr::New(a, b, c);
     const auto nodes = this->GetDataStorage()->GetSubset(predicate);
     for (const auto &node : *nodes)

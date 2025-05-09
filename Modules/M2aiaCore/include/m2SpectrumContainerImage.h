@@ -32,10 +32,10 @@ See LICENSE.txt for details.
 
 namespace m2
 {
-  class M2AIACORE_EXPORT FsmSpectrumImage final : public SpectrumImage
+  class M2AIACORE_EXPORT SpectrumContainerImage final : public SpectrumImage
   {
   public:
-    mitkClassMacro(FsmSpectrumImage, SpectrumImage);
+    mitkClassMacro(SpectrumContainerImage, SpectrumImage);
     itkNewMacro(Self);
 
     itkSetEnumMacro(ImageGeometryInitialized, bool);
@@ -79,8 +79,8 @@ namespace m2
     bool m_ImageAccessInitialized = false;
     bool m_ImageGeometryInitialized = false;
 
-    FsmSpectrumImage();
-    ~FsmSpectrumImage() override;
+    SpectrumContainerImage();
+    ~SpectrumContainerImage() override;
 
 
     void GetYValues(unsigned int id, std::vector<float> & data) const

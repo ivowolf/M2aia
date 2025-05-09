@@ -14,7 +14,7 @@ See LICENSE.txt for details.
 
 ===================================================================*/
 
-#include <m2FsmSpectrumImage.h>
+#include <m2SpectrumContainerImage.h>
 #include <m2Process.hpp>
 #include <m2Timer.h>
 #include <mitkImagePixelReadAccessor.h>
@@ -28,7 +28,7 @@ See LICENSE.txt for details.
 #include <signal/m2RunningMedian.h>
 #include <signal/m2Smoothing.h>
 
-void m2::FsmSpectrumImage::GetImage(double cmInv, double tol, const mitk::Image *mask, mitk::Image *destImage) const
+void m2::SpectrumContainerImage::GetImage(double cmInv, double tol, const mitk::Image *mask, mitk::Image *destImage) const
 {
 
   AccessByItk(destImage, [](auto itkImg) { itkImg->FillBuffer(0); });
@@ -84,12 +84,12 @@ void m2::FsmSpectrumImage::GetImage(double cmInv, double tol, const mitk::Image 
                    });
 }
 
-void m2::FsmSpectrumImage::InitializeProcessor()
+void m2::SpectrumContainerImage::InitializeProcessor()
 {
   // this->m_Processor.reset((m2::ISpectrumImageSource *)new FsmProcessor(this));
 }
 
-void m2::FsmSpectrumImage::InitializeGeometry()
+void m2::SpectrumContainerImage::InitializeGeometry()
 {
   
   std::array<itk::SizeValueType, 3> imageSize = {GetPropertyValue<unsigned>("dim_x"), // n_x
@@ -186,14 +186,17 @@ void m2::FsmSpectrumImage::InitializeGeometry()
   this->SetImageGeometryInitialized(true);
 }
 
-void m2::FsmSpectrumImage::InitializeImageAccess()
+void m2::SpectrumContainerImage::InitializeImageAccess()
 {
   using namespace m2;
+  auto sumImage = mitk::Image::New();
+  sumImage->Initialize((mitk::Image *)(this));
 
   auto accMask = std::make_shared<mitk::ImagePixelWriteAccessor<mitk::LabelSetImage::PixelType, 3>>(GetMaskImage());
   auto accIndex = std::make_shared<mitk::ImagePixelWriteAccessor<m2::IndexImagePixelType, 3>>(GetIndexImage());
-  // auto accNorm = std::make_shared<mitk::ImagePixelWriteAccessor<m2::NormImagePixelType,
-  // 3>>(GetNormalizationImage());
+
+  this->SetNormalizationImage(sumImage, m2::NormalizationStrategyType::Sum);
+  auto accNorm = std::make_shared<mitk::ImagePixelWriteAccessor<m2::NormImagePixelType, 3>>(GetNormalizationImage(m2::NormalizationStrategyType::Sum));
 
   auto &xs = GetXAxis();
 
@@ -236,12 +239,18 @@ void m2::FsmSpectrumImage::InitializeImageAccess()
       {
         auto &spectrum = spectra[i];
         auto &ys = spectrum.data;
+        
+        accNorm->SetPixelByIndex(spectrum.index, std::accumulate(std::begin(ys),
+                                                                 std::end(ys),
+                                                                 0.0,
+                                                                 plus));
 
         Smoother(std::begin(ys), std::end(ys));
         BaselineSubtractor(std::begin(ys), std::end(ys), std::begin(baseline));
 
         std::transform(std::begin(ys), std::end(ys), sumT.at(t).begin(), sumT.at(t).begin(), plus);
         std::transform(std::begin(ys), std::end(ys), skylineT.at(t).begin(), skylineT.at(t).begin(), maximum);
+
       }
     });
 
@@ -289,12 +298,12 @@ void m2::FsmSpectrumImage::InitializeImageAccess()
 }
 
 
-m2::FsmSpectrumImage::~FsmSpectrumImage()
+m2::SpectrumContainerImage::~SpectrumContainerImage()
 {
   MITK_INFO << GetStaticNameOfClass() << " destroyed!";
 }
 
-m2::FsmSpectrumImage::FsmSpectrumImage()
+m2::SpectrumContainerImage::SpectrumContainerImage()
 {
   MITK_INFO << GetStaticNameOfClass() << " created!";
 
