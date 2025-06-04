@@ -43,12 +43,10 @@ namespace m2
 
 
     /// @brief Reduces spectral data to image gray values.
-    // x: Postion on the x axis of each spectrum in the pixel
-    // tol: interval range around x+/-tol
+    // x: center postion on the x axis
+    // tol: interval range around the center (x+/-tol)
     // mask: region where image data is generated (if null the whole image region is queried)
-    // image: generated ray values will be stored in the given image ()
-    // This method can be used to delegate calls to the previously initialized processor object (m2::InitializeProcessor)
-    // This method may access the initialized image structures (m2::InitializeGeometry)
+    // image: target image to be filled with the data
     virtual void GetImage(double x, double tol, const mitk::Image *mask, mitk::Image *img) const = 0;
   };
 
