@@ -85,5 +85,31 @@ namespace m2
       }
     }
 
+
+    template <class ItXFirst, class ItXLast, class ItYFirst, class ItYLast>
+    static inline double GetNormalizationFactor(
+      m2::NormalizationStrategyType strategy, ItXFirst xFirst, ItXLast xLast, ItYFirst yFirst, ItYLast yLast)
+    {
+      using namespace std;
+      switch (strategy)
+      {
+        case m2::NormalizationStrategyType::TIC:
+          return m2::Signal::TotalIonCurrent(xFirst, xLast, yFirst);
+        case m2::NormalizationStrategyType::Sum:
+          return accumulate(yFirst, yLast, double(0.0));
+        case m2::NormalizationStrategyType::Mean:
+          return accumulate(yFirst, yLast, double(0.0)) / double(std::distance(yFirst, yLast));
+        case m2::NormalizationStrategyType::Max:
+          return *max_element(yFirst, yLast);
+        case m2::NormalizationStrategyType::RMS:
+          return m2::Signal::RootMeanSquare(yFirst, yLast);
+        case m2::NormalizationStrategyType::None:
+        case m2::NormalizationStrategyType::Internal:
+        case m2::NormalizationStrategyType::External:
+        default:
+          return 1;
+      }
+    }
+
   }; // namespace Signal
 } // namespace m2
