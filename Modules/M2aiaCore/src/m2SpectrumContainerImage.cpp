@@ -28,7 +28,7 @@ See LICENSE.txt for details.
 #include <signal/m2RunningMedian.h>
 #include <signal/m2Smoothing.h>
 
-void m2::SpectrumContainerImage::GetImage(double cmInv, double tol, const mitk::Image *mask, mitk::Image *destImage) const
+void m2::SpectrumContainerImage::GetImage(double x, double tol, const mitk::Image *mask, mitk::Image *destImage) const
 {
 
   AccessByItk(destImage, [](auto itkImg) { itkImg->FillBuffer(0); });
@@ -46,7 +46,7 @@ void m2::SpectrumContainerImage::GetImage(double cmInv, double tol, const mitk::
     MITK_INFO << "> Use mask image";
   }
   
-  GetPropertyList()->SetProperty("cm¯¹", mitk::DoubleProperty::New(cmInv));
+  GetPropertyList()->SetProperty("cm¯¹", mitk::DoubleProperty::New(x));
   GetPropertyList()->SetProperty("tol", mitk::DoubleProperty::New(tol));
   
 
@@ -55,7 +55,7 @@ void m2::SpectrumContainerImage::GetImage(double cmInv, double tol, const mitk::
 
   // Profile (continuous) spectrum
 
-  const auto subRes = m2::Signal::Subrange(xs, cmInv - tol, cmInv + tol);
+  const auto subRes = m2::Signal::Subrange(xs, x - tol, x + tol);
   const unsigned long n = m_Spectra.size();
   // map all spectra to several threads for processing
   const unsigned int t = m2::SpectrumImage::GetNumberOfThreads();
@@ -72,14 +72,19 @@ void m2::SpectrumContainerImage::GetImage(double cmInv, double tol, const mitk::
                        auto s = std::next(std::begin(ys), subRes.first);
                        auto e = std::next(std::begin(ys), subRes.first + subRes.second);
 
-                      //  if (maskAccess && maskAccess->GetPixelByIndex(spectrum.index) == 0)
-                      //  {
-                      //    imageAccess.SetPixelByIndex(spectrum.index, 0);
-                      //    continue;
-                      //  }
 
-                      
-                      imageAccess.SetPixelByIndex(spectrum.index, Signal::RangePooling<float>(s, e, GetRangePoolingStrategy()));
+                      if(std::distance(s,e)>=2){
+                        
+
+                        auto mean_derivative = std::inner_product(
+                          std::next(s, 1), e, s,
+                          0.0,
+                          std::plus<>(),
+                          [](auto a, auto b) { return a - b; }
+                        ) / double(std::distance(s, e) - 1);
+                        imageAccess.SetPixelByIndex(spectrum.index, mean_derivative);
+                      }else
+                        imageAccess.SetPixelByIndex(spectrum.index, Signal::RangePooling<float>(s, e, GetRangePoolingStrategy()));
                      }
                    });
 }
@@ -175,6 +180,22 @@ void m2::SpectrumContainerImage::InitializeGeometry()
     image->AddLabel(label,0);
   }
 
+  for( auto type : m2::NormalizationStrategyTypeList){
+  
+    using LocalImageType = itk::Image<m2::NormImagePixelType, 3>;
+    auto caster = itk::CastImageFilter<ImageType, LocalImageType>::New();
+    caster->SetInput(itkIonImage);
+    caster->Update();
+
+    auto normImage = mitk::Image::New();
+    normImage->InitializeByItk(caster->GetOutput());
+
+    mitk::ImagePixelWriteAccessor<m2::NormImagePixelType, 3> acc(normImage);
+    std::memset(acc.GetData(), 0, imageSize[0] * imageSize[1] * imageSize[2] * sizeof(m2::NormImagePixelType));
+    this->SetNormalizationImage(normImage, type);
+  }
+
+
   mitk::ImagePixelWriteAccessor<m2::DisplayImagePixelType, 3> acc(this);
   auto max_dim0 = GetDimensions()[0];
   auto max_dim1 = GetDimensions()[1];
@@ -186,17 +207,62 @@ void m2::SpectrumContainerImage::InitializeGeometry()
   this->SetImageGeometryInitialized(true);
 }
 
+void m2::SpectrumContainerImage::InitializeNormalizationImage(m2::NormalizationStrategyType type){
+  if(GetNormalizationImageStatus(type)){
+    MITK_WARN << "The normalization image is already initialized. " << "type " << m2::to_string(type);
+    return;
+  }
+  // initialize the normalization iamge
+  auto image = GetNormalizationImage(type);
+  // auto normImageRef = p->GetNormalizationImage(m2::NormalizationStrategyType::None);
+  // image->Initialize(normImageRef);
+  
+  // create a write accessor
+  using WriteAccessorType = mitk::ImagePixelWriteAccessor<NormImagePixelType, 3>;
+  auto accNorm = std::make_shared<WriteAccessorType>(image);
+
+  // get individual spectrum meta data
+  auto &spectra = GetSpectra();
+  int threads = GetNumberOfThreads();
+  using namespace std;
+
+  // split image in individual regions and process in parallel each spectrum
+  Process::Map(spectra.size(),
+               threads,
+               [&](unsigned int /*thread*/, unsigned int a, unsigned int b)
+               {
+                
+                 vector<double> mzs = GetXAxis();
+
+                 for (unsigned long int i = a; i < b; i++)
+                 {
+                   auto &spectrum = spectra[i];
+
+                   double v;
+                   if (type == NormalizationStrategyType::Internal)
+                     v = 1;
+                   else
+                     v = m2::Signal::GetNormalizationFactor(type, begin(mzs), end(mzs), begin(spectrum.data), end(spectrum.data));
+
+                   accNorm->SetPixelByIndex(spectrum.index, v);
+                 }
+               });
+  SetNormalizationImageStatus(type, true);
+}
+
 void m2::SpectrumContainerImage::InitializeImageAccess()
 {
   using namespace m2;
-  auto sumImage = mitk::Image::New();
-  sumImage->Initialize((mitk::Image *)(this));
+
 
   auto accMask = std::make_shared<mitk::ImagePixelWriteAccessor<mitk::LabelSetImage::PixelType, 3>>(GetMaskImage());
   auto accIndex = std::make_shared<mitk::ImagePixelWriteAccessor<m2::IndexImagePixelType, 3>>(GetIndexImage());
 
-  this->SetNormalizationImage(sumImage, m2::NormalizationStrategyType::Sum);
-  auto accNorm = std::make_shared<mitk::ImagePixelWriteAccessor<m2::NormImagePixelType, 3>>(GetNormalizationImage(m2::NormalizationStrategyType::Sum));
+    const auto currentType = GetNormalizationStrategy();
+  if (!GetNormalizationImageStatus(currentType))
+    InitializeNormalizationImage(currentType);
+
+  auto accNorm = std::make_shared<mitk::ImagePixelWriteAccessor<m2::NormImagePixelType, 3>>(GetNormalizationImage(currentType));
 
   auto &xs = GetXAxis();
 
@@ -240,6 +306,15 @@ void m2::SpectrumContainerImage::InitializeImageAccess()
         auto &spectrum = spectra[i];
         auto &ys = spectrum.data;
         
+        std::transform(std::begin(ys), std::end(ys), std::begin(ys), [](double absorbance) {
+          return std::pow(10.0, -absorbance) * 100.0;
+        });
+        
+        // double t0 = 0.01;
+        // auto trans =  [t0](double x){return std::pow(10.0,-std::log10((x/t0)/100.0))*100.0;};
+
+        // std::transform(std::begin(ys), std::end(ys), std::begin(ys), trans);
+        
         accNorm->SetPixelByIndex(spectrum.index, std::accumulate(std::begin(ys),
                                                                  std::end(ys),
                                                                  0.0,
@@ -250,6 +325,8 @@ void m2::SpectrumContainerImage::InitializeImageAccess()
 
         std::transform(std::begin(ys), std::end(ys), sumT.at(t).begin(), sumT.at(t).begin(), plus);
         std::transform(std::begin(ys), std::end(ys), skylineT.at(t).begin(), skylineT.at(t).begin(), maximum);
+
+
 
       }
     });

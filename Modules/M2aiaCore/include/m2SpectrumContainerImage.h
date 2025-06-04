@@ -35,8 +35,21 @@ namespace m2
   class M2AIACORE_EXPORT SpectrumContainerImage final : public SpectrumImage
   {
   public:
-    mitkClassMacro(SpectrumContainerImage, SpectrumImage);
+    public:
+    typedef SpectrumContainerImage Self;
+    typedef SpectrumImage Superclass;
+    typedef itk::SmartPointer<Self> Pointer;
+    typedef itk::SmartPointer<const Self> ConstPointer;
+    virtual std::vector<std::string> GetClassHierarchy() const override { return mitk::GetClassHierarchy<Self>(); }
+
+    // Overwrite those methods to make MITK recognize this as default mitk::Image
+    static const char *GetStaticNameOfClass() { return "Image"; }
+    const char *GetNameOfClass() const override { return "Image"; }
+
     itkNewMacro(Self);
+
+    // mitkClassMacro(SpectrumContainerImage, SpectrumImage);
+    // itkNewMacro(Self);
 
     itkSetEnumMacro(ImageGeometryInitialized, bool);
     itkGetEnumMacro(ImageGeometryInitialized, bool);
@@ -66,7 +79,7 @@ namespace m2
     void InitializeImageAccess() override;
     void InitializeGeometry() override;
     void InitializeProcessor() override;
-    void InitializeNormalizationImage(m2::NormalizationStrategyType) override {}
+    void InitializeNormalizationImage(m2::NormalizationStrategyType) override;
     void GetSpectrum(unsigned int id, std::vector<double> & xs, std::vector<double> & ys) const override {GetYValues(id, ys);GetXValues(id, xs);}
     void GetIntensities(unsigned int  id, std::vector<double> & ys) const override {GetYValues(id, ys);}
     void GetSpectrumFloat(unsigned int id, std::vector<float> & xs, std::vector<float> & ys) const override {GetYValues(id, ys);GetXValues(id, xs);}
