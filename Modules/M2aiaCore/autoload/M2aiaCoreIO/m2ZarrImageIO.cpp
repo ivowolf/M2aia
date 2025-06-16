@@ -13,7 +13,7 @@ found in the LICENSE file.
 #include <functional>
 #include <itkOpenSlideImageIO.h>
 #include <itksys/SystemTools.hxx>
-#include <m2FsmSpectrumImage.h>
+#include <m2SpectrumContainerImage.h>
 #include <m2ZarrImageIO.h>
 #include <map>
 #include <mitkCoreServices.h>
@@ -225,7 +225,7 @@ namespace m2
               float *dataF = static_cast<float *>(data);
               
 
-              auto fsmImage = m2::FsmSpectrumImage::New();
+              auto fsmImage = m2::SpectrumContainerImage::New();
               fsmImage->SetPropertyValue<unsigned>("dim_x", shape[0]); // n_x
               fsmImage->SetPropertyValue<unsigned>("dim_y", shape[1]); // n_z
               fsmImage->SetPropertyValue<unsigned>("dim_z", 1);
@@ -266,7 +266,7 @@ namespace m2
               unsigned long id = 0;
               while (!it.IsAtEnd())
               {
-                m2::FsmSpectrumImage::SpectrumData spectrum;
+                m2::SpectrumContainerImage::SpectrumData spectrum;
                 spectrum.data.resize(vDimSize, 0);
                 spectrum.index = it.GetIndex();
 
