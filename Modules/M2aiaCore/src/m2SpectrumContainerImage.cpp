@@ -24,6 +24,7 @@ See LICENSE.txt for details.
 #include <signal/m2Baseline.h>
 #include <signal/m2Normalization.h>
 #include <signal/m2PeakDetection.h>
+#include <signal/m2SpatialNormalization.h>
 #include <signal/m2Pooling.h>
 #include <signal/m2RunningMedian.h>
 #include <signal/m2Smoothing.h>
@@ -87,6 +88,38 @@ void m2::SpectrumContainerImage::GetImage(double x, double tol, const mitk::Imag
                         imageAccess.SetPixelByIndex(spectrum.index, Signal::RangePooling<float>(s, e, GetRangePoolingStrategy()));
                      }
                    });
+
+
+    // Spatial image normalization
+    const auto bufferN = std::accumulate(destImage->GetDimensions(), destImage->GetDimensions() + 3, 1, std::multiplies<>());
+    switch(GetImageNormalizationStrategy()){
+      case m2::ImageNormalizationStrategyType::zScore:
+      {
+        m2::Signal::StandardizeImage(imageAccess.GetData(), imageAccess.GetData()+bufferN, maskAccess->GetData(), imageAccess.GetData()); 
+        break;
+      }
+      case m2::ImageNormalizationStrategyType::MinMax:
+      {
+        m2::Signal::MinMaxNormalizeImage(imageAccess.GetData(), imageAccess.GetData()+bufferN, maskAccess->GetData(), imageAccess.GetData());
+        break;
+      }
+      case m2::ImageNormalizationStrategyType::ParetoScaling:
+      {
+        m2::Signal::ParetoScaling(imageAccess.GetData(), imageAccess.GetData()+bufferN, maskAccess->GetData(), imageAccess.GetData()); 
+        break;
+      }
+      case m2::ImageNormalizationStrategyType::VastScaling:
+        m2::Signal::VastScaling(imageAccess.GetData(), imageAccess.GetData()+bufferN, maskAccess->GetData(), imageAccess.GetData()); 
+        break;
+      case m2::ImageNormalizationStrategyType::RangeScaling:
+        m2::Signal::RangeScaling(imageAccess.GetData(), imageAccess.GetData()+bufferN, maskAccess->GetData(), imageAccess.GetData()); 
+        break;
+      case m2::ImageNormalizationStrategyType::None:
+      default:
+      {
+        break;
+      }
+    }
 }
 
 void m2::SpectrumContainerImage::InitializeProcessor()
