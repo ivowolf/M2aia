@@ -85,7 +85,7 @@ void QmitkUMAPView::OnStartDockerProcessing()
 
           // docker image name
           mitk::DockerHelper helper("ghcr.io/m2aia/umap:latest");
-          m2::SpectrumImageHelper::AddArguments(helper);
+          m2::SpectrumImageHelper::AddArguments(helper.GetAdditionalApplicationArguments());
 
           helper.EnableAutoRemoveContainer(true);
           helper.EnableGPUs(false);

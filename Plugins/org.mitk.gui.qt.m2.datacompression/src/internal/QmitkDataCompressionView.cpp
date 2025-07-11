@@ -169,10 +169,6 @@ void QmitkDataCompressionView::SetFocus() {}
 void QmitkDataCompressionView::OnStartKMeans()
 {
 
-  
-
-
-
   auto data =m_Controls.boxKMeansDistanceMetric->itemData(m_Controls.boxKMeansDistanceMetric->currentIndex());
   auto metricType = data.value<m2::DistanceMetric>();
   
@@ -206,7 +202,6 @@ void QmitkDataCompressionView::OnStartKMeans()
     vectorNodeNames += vectorNode->GetName() + "_";
   }
   vectorNodeNames.pop_back();
-
   filter->GenerateData();
 
   auto selectedNodes = m_Controls.imageSelection->GetSelectedNodesStdVector();
@@ -219,8 +214,6 @@ void QmitkDataCompressionView::OnStartKMeans()
     outputNode->SetName("KMeans_" + std::to_string(m_Controls.kmeans_clusters->value()) + "_" + vectorNodeNames);
     this->GetDataStorage()->Add(outputNode, const_cast<mitk::DataNode *>(s.GetPointer()));  
   }
-
-
 }
 
 void QmitkDataCompressionView::OnStartPCA()
@@ -281,14 +274,6 @@ void QmitkDataCompressionView::OnStartPCA()
       }
     }
   }
-
-  // const auto &peakList = m_PeakList;
-
-  // auto outputNode2 = mitk::DataNode::New();
-  // mitk::Image::Pointer data2 = filter->GetOutput(1);
-  // outputNode2->SetData(data2);
-  // outputNode2->SetName("pcs");
-  // this->GetDataStorage()->Add(outputNode2, node.GetPointer());
 }
 
 void QmitkDataCompressionView::OnStartTSNE()

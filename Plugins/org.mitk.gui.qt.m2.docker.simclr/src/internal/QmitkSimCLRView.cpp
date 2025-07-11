@@ -91,7 +91,7 @@ void QmitkSimCLRView::OnStartDockerProcessing()
           mitk::ProgressBar::GetInstance()->AddStepsToDo(3);
           
           mitk::DockerHelper helper("ghcr.io/m2aia/simclr:latest");
-          m2::SpectrumImageHelper::AddArguments(helper);
+          m2::SpectrumImageHelper::AddArguments(helper.GetAdditionalApplicationArguments());
 
           helper.EnableAutoRemoveContainer(true);
           helper.EnableGPUs(true);

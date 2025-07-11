@@ -87,7 +87,7 @@ void QmitkSklearnView::OnStartDockerProcessing()
           mitk::ProgressBar::GetInstance()->AddStepsToDo(3);
           
           mitk::DockerHelper helper("ghcr.io/m2aia/sklearn:latest");
-          m2::SpectrumImageHelper::AddArguments(helper);
+          m2::SpectrumImageHelper::AddArguments(helper.GetAdditionalApplicationArguments());
 
           helper.EnableAutoRemoveContainer(true);
           helper.EnableGPUs(false);
