@@ -51,6 +51,9 @@ namespace m2
 
   private:
     ZarrImageIO *IOClone() const override;
+
+    std::string FindInfoFile(std::string location) const;
+    std::map<std::string,std::string> ReadInfoFile(std::string) const;
     
   };
 } // namespace m2

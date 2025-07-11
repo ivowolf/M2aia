@@ -28,6 +28,9 @@ found in the LICENSE file.
 #include <zarr.h>
 #include <lz4.h>
 
+#include <regex>
+#include <filesystem>
+
 namespace m2
 {
   ZarrImageIO::ZarrImageIO() : AbstractFileIO(mitk::Image::GetStaticNameOfClass(), Zarr_MIMETYPE(), "Zarr Image")
@@ -66,19 +69,109 @@ namespace m2
     return Supported;
   }
 
+  std::string ZarrImageIO::FindInfoFile(std::string currentDir) const{
+    // Search in all parent directories for a txt file with "Info" (case insensitive)
+    
+    std::string infoFilePath;
+    
+    while (!currentDir.empty() && currentDir != "/")
+    {
+      std::vector<std::string> files;
+      for (const auto &entry : std::filesystem::directory_iterator(currentDir))
+      {
+        if (entry.is_regular_file())
+        {
+          auto file = entry.path().filename().string();
+          if (itksys::SystemTools::GetFilenameLastExtension(file) == ".txt")
+          {
+            std::string lowerFile = itksys::SystemTools::LowerCase(file);
+            if (lowerFile.find("info") != std::string::npos)
+            {
+              infoFilePath = entry.path().string();
+              MITK_INFO << "Found info file: " << infoFilePath;
+              return infoFilePath;
+            }
+          }
+        }
+      }
+      if (!infoFilePath.empty())
+        break;
+      currentDir = itksys::SystemTools::GetParentDirectory(currentDir);
+    }
+    return "";
+  } 
+
+  std::map<std::string,std::string> ZarrImageIO::ReadInfoFile(std::string infoFilePath) const
+  {
+    std::map<std::string,std::string> infoMap;
+    
+    if (infoFilePath.empty())
+    {
+      MITK_ERROR << "ZarrImageIO::ReadInfoFile() No info file found";
+      return infoMap;
+    }
+
+    std::ifstream infoFile(infoFilePath);
+    if (!infoFile.is_open())
+    {
+      MITK_ERROR << "ZarrImageIO::ReadInfoFile() Could not open info file: " << infoFilePath;
+      return infoMap;
+    }
+
+    std::string line;
+    while (std::getline(infoFile, line))
+    {
+      auto pos = line.find(':');
+      if (pos != std::string::npos)
+      {
+        auto trim = [](std::string s) {
+          s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) { return !std::isspace(ch); }));
+          s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) { return !std::isspace(ch); }).base(), s.end());
+          return s;
+        };
+        auto key = trim(line.substr(0, pos));
+        auto value = trim(line.substr(pos + 1));
+        infoMap[key] = value;
+      }
+    }
+    
+    return infoMap;
+  }
+
   std::vector<mitk::BaseData::Pointer> ZarrImageIO::DoRead()
   {
-    MITK_INFO << "ZarrImageIO::DoRead() " << this->GetInputLocation();
+    
 
     // Assuming .zgroup as input location
     std::string cwd = this->GetInputLocation();
     auto groupDir = itksys::SystemTools::GetParentDirectory(cwd);
+
+
+    float xPixelSize = -1.0f, yPixelSize = -1.0f;
+    std::string infoFile = FindInfoFile(groupDir);
+
+    if(!infoFile.empty()){
+      auto infoMap = ReadInfoFile(infoFile);
+      if (infoMap.find("X pixelsize") != infoMap.end())
+      {
+        xPixelSize = std::stof(infoMap["X pixelsize"]) / 1000.0; // Convert to mm);
+        MITK_INFO << "X pixelsize: " << xPixelSize ;
+      }
+      if (infoMap.find("Y pixelsize") != infoMap.end())
+      {
+        yPixelSize = std::stof(infoMap["Y pixelsize"]) / 1000.0; // Convert to mm
+        MITK_INFO << "Y pixelsize: " << yPixelSize;
+      }
+    } else {
+      MITK_ERROR << "No info file found";
+      
+    }
     
     auto hypercubeDir = groupDir + "/hypercube";
     auto hypercubeZarray = hypercubeDir + "/.zarray";
     if(!(itksys::SystemTools::PathExists(hypercubeDir) &&
        itksys::SystemTools::FileExists(hypercubeZarray))){
-      MITK_ERROR << "ZarrImageIO::DoRead() No hypercube directory found";
+      MITK_ERROR << "No hypercube directory found";
       return {};
     }
 
@@ -86,7 +179,7 @@ namespace m2
     auto wvnmZarray = wvnmDir + "/.zarray";
     if(!(itksys::SystemTools::PathExists(wvnmDir) &&
     itksys::SystemTools::FileExists(wvnmZarray))){
-      MITK_ERROR << "ZarrImageIO::DoRead() No wvnm directory found";
+      MITK_ERROR << "No wvnm directory found";
       return {};
     }
     
@@ -94,16 +187,54 @@ namespace m2
     json hypercubeJson = json::parse(std::ifstream(hypercubeZarray));
     json wvnmJson = json::parse(std::ifstream(wvnmZarray));
 
-    // Can be defined in the .zarray json
-    mitk::AffineTransform3D::Pointer transform;
-    int dimensions = 0;
-    std::vector<std::string> kinds;
-    
-    bool vectorDimensionExists = false;
-    int vDim = -1;
-    unsigned int vDimSize = -1;
     std::array<unsigned int, 3> shape;
+    hypercubeJson["shape"].get_to(shape);
+
+
+    // Default Values
+    mitk::AffineTransform3D::Pointer transform;
+    int dimensions = 2;
+    std::vector<std::string> kinds = {"domain", "domain", "vector"};
+    
+    int vDim = 2;
+    unsigned int vDimSize = shape[vDim];
+    bool vectorDimensionExists = true;
+
+    transform = mitk::AffineTransform3D::New();
+    mitk::AffineTransform3D::MatrixType matrix;
+    mitk::AffineTransform3D::OutputVectorType offset;
+
+    std::vector<float> defaultPixelSize;
+    
+    if(!infoFile.empty() && xPixelSize > 0.0f && yPixelSize > 0.0f)
+    {
+      defaultPixelSize = {xPixelSize, yPixelSize, 0.01f};
+    }
+    else
+    {
+      defaultPixelSize = {0.0043, 0.0043, 0.01}; // Default pixel size if not found in info file
+    }
+    
+    
+    
+    matrix[0][0] = defaultPixelSize[0]; matrix[0][1] = 0.0;                 matrix[0][2] = 0.0;
+    matrix[1][0] = 0.0;                 matrix[1][1] = defaultPixelSize[1]; matrix[1][2] = 0.0; // Negative y-direction for image coordinates
+    matrix[2][0] = 0.0;                 matrix[2][1] = 0.0;                 matrix[2][2] = defaultPixelSize[2];
+    
+    offset[0] = defaultPixelSize[0] * shape[0]; // Assuming the offset in x-direction is the width of the image
+    offset[1] = defaultPixelSize[1] * shape[1]; // Assuming the offset in y-direction is the height of the image
+    offset[2] = 0.0;
+    
+    transform->SetMatrix(matrix);
+    transform->SetOffset(offset);
+    
+    float defaultOffset = 954.0f;
+    float defaultDelta = 2.0f;
     std::vector<float> wvnmData;
+    for(unsigned int i = 0 ; i < shape[vDim]; ++i)
+      wvnmData.push_back(defaultOffset + i * defaultDelta);
+    
+    
     
     if (hypercubeJson.contains("Image"))
     {
@@ -123,31 +254,18 @@ namespace m2
         auto vPosIt = std::find(std::begin(kinds), std::end(kinds), "vector");
         vectorDimensionExists = vPosIt != std::end(kinds);
         vDim = std::distance(std::begin(kinds), vPosIt);
-        hypercubeJson["shape"].get_to(shape);
         vDimSize = shape[vDim];
       }
+      
       if (hypercubeJson["Image"].contains("wvnm")){
         wvnmData.resize(shape[2]);
         hypercubeJson["Image"]["wvnm"].get_to(wvnmData);
       }
     }
-    
-    
+
     mitk::Image::Pointer outImage = nullptr;
 
-
-    
-
-
-
-
-    // auto initializeImage = []<typename T, int DIM = 3>(unsigned int components, unsigned int * dims, void * data) ->
-    // mitk::Image::Pointer {
-
-    //   return outImage;
-    // };
-
-    MITK_INFO << "ZarrImageIO::DoRead() cwd: " << cwd;
+    MITK_INFO << "cwd: " << cwd;
     try
     {
 
@@ -226,8 +344,8 @@ namespace m2
               
 
               auto fsmImage = m2::SpectrumContainerImage::New();
-              fsmImage->SetPropertyValue<unsigned>("dim_x", shape[0]); // n_x
-              fsmImage->SetPropertyValue<unsigned>("dim_y", shape[1]); // n_z
+              fsmImage->SetPropertyValue<unsigned>("dim_x", shape[1]); 
+              fsmImage->SetPropertyValue<unsigned>("dim_y", shape[0]); 
               fsmImage->SetPropertyValue<unsigned>("dim_z", 1);
 
               auto origin = transform->GetOffset();
@@ -237,10 +355,10 @@ namespace m2
 
               auto matrix = transform->GetMatrix();
               auto spacing = mitk::Vector3D();
-                spacing[0] = matrix[0][0];
-                spacing[1] = matrix[1][1];
-                spacing[2] = matrix[2][2];
-                fsmImage->SetPropertyValue<double>("spacing_x", m2::MicroMeterToMilliMeter(spacing[0])); // x_delta
+                spacing[0] = std::abs(matrix[0][0]);
+                spacing[1] = std::abs(matrix[1][1]);
+                spacing[2] = std::abs(matrix[2][2]);
+              fsmImage->SetPropertyValue<double>("spacing_x", m2::MicroMeterToMilliMeter(spacing[0])); // x_delta
               fsmImage->SetPropertyValue<double>("spacing_y", m2::MicroMeterToMilliMeter(spacing[1])); // y_delta
               fsmImage->SetPropertyValue<double>("spacing_z", m2::MicroMeterToMilliMeter(spacing[2]));
 
@@ -275,7 +393,7 @@ namespace m2
 
                 for (unsigned int v = 0; v < vDimSize; ++v)
                 {
-                  spectrum.data[v] = dataF[(shape[0]-1-x)* shape[1] + y  + v * shape[0] * shape[1]];
+                  spectrum.data[v] = dataF[(shape[0]-y-1)* shape[1] + x  + v * shape[0] * shape[1]];
                 }
 
                 spectrum.id = id;
@@ -339,7 +457,7 @@ namespace m2
 
     catch (const std::exception &e)
     {
-      MITK_ERROR << "ZarrImageIO::DoRead() exception: " << e.what();
+      MITK_ERROR << "exception: " << e.what();
       return {};
     }
 
