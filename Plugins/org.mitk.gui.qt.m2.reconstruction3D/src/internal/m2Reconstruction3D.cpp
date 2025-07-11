@@ -316,19 +316,18 @@ void m2Reconstruction3D::OnStartStacking()
     node->SetName(stackNames[0]);
     GetDataStorage()->Add(node);
 
-    auto transformers = spectrumImageStack1->GetSliceTransformers();
-    unsigned int i = 0;
-    for(auto t: transformers){
-      if(t){
-        MITK_INFO << "Transform " << i;
-        auto node2 = mitk::DataNode::New();
-        node2->SetData(t->GetDeformationField());
-        node2->SetName("Transform " + std::to_string(i));
-        node2->SetVisibility(false);
-        node2->SetBoolProperty("helper object", true);
-        GetDataStorage()->Add(node2);
-      }
-    }
+    // auto transformers = spectrumImageStack1->GetSliceTransformers();
+    // unsigned int i = 0;
+    // for(auto t: transformers){
+    //   if(t){
+    //     auto node2 = mitk::DataNode::New();
+    //     node2->SetData(t->GetDeformationField());
+    //     node2->SetName("Transform " + std::to_string(i));
+    //     node2->SetVisibility(false);
+    //     node2->SetBoolProperty("helper object", true);
+    //     GetDataStorage()->Add(node2);
+    //   }
+    // }
 
     if (doMultiModalImageRegistration)
     {
@@ -341,18 +340,18 @@ void m2Reconstruction3D::OnStartStacking()
       GetDataStorage()->Add(node);
 
 
-      auto transformers = spectrumImageStack2->GetSliceTransformers();
-      unsigned int i = 0;
-      for(auto t: transformers){
-        if(t){
-          auto node2 = mitk::DataNode::New();
-          node2->SetData(t->GetDeformationField());
-          node2->SetName("Transform " + std::to_string(i));
-          node2->SetVisibility(false);
-          node2->SetBoolProperty("helper object", true);
-          GetDataStorage()->Add(node2);
-        }
-      }
+      // auto transformers = spectrumImageStack2->GetSliceTransformers();
+      // unsigned int i = 0;
+      // for(auto t: transformers){
+      //   if(t){
+      //     auto node2 = mitk::DataNode::New();
+      //     node2->SetData(t->GetDeformationField());
+      //     node2->SetName("Transform " + std::to_string(i));
+      //     node2->SetVisibility(false);
+      //     node2->SetBoolProperty("helper object", true);
+      //     GetDataStorage()->Add(node2);
+      //   }
+      // }
     }
   });
 
