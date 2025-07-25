@@ -22,6 +22,8 @@ set(H_FILES
   include/m2SpectrumImage.h
   include/m2ISpectrumImageDataAccess.h
   include/m2ISpectrumImageSource.h
+
+  include/m2MassSpecVisualizationFilter.h
   
   include/m2ImzMLSpectrumImage.h
   include/m2ImzMLSpectrumImageSource.hpp
@@ -59,6 +61,7 @@ set(CPP_FILES
   m2SpectrumImageDataInteractor.cpp
   m2IntervalVector.cpp
   m2ShiftMapImageFilter.cpp
+  m2MassSpecVisualizationFilter.cpp
   
   IO/m2ImzMLParser.cpp
   IO/m2ImzMLImageIO.cpp
