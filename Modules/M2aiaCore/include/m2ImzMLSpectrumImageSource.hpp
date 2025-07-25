@@ -295,14 +295,14 @@ template <typename InputIterator, typename MaskIterator, typename OutputIterator
 
   struct BinaryDataAccessHelper
   {
-    unsigned dataOffset;
-    unsigned dataOffsetReverse;
-    unsigned dataModifiedOffset;
-    unsigned dataModifiedOffsetReverse;
+    unsigned dataOffset = 0;
+    unsigned dataOffsetReverse = 0;
+    unsigned dataModifiedOffset = 0;
+    unsigned dataModifiedOffsetReverse = 0;
 
-    unsigned dataModifiedLength;
-    unsigned dataPaddingLeft;
-    unsigned dataPaddingRight;
+    unsigned dataModifiedLength = 0;
+    unsigned dataPaddingLeft = 0;
+    unsigned dataPaddingRight = 0;
   };
 
   /**
@@ -340,14 +340,14 @@ template <typename InputIterator, typename MaskIterator, typename OutputIterator
     // check if padding can be applied on the left side
     // 3) Pad the range for overcoming border-problems with kernel based operations
     // |>>>>>>>>>[^^^^^(********c********)^^^^^]<<<<<<<<<<<<<<<<<<<<<<<<<|
-    if (offsetHelper.dataOffset / padding >= 1)
+    if (padding > 0 && (offsetHelper.dataOffset / padding) >= 1)
       offsetHelper.dataPaddingLeft = padding;
     else
       offsetHelper.dataPaddingLeft = offsetHelper.dataOffset;
     // MITK_INFO << "(GetBinaryDataAccessHelper) [offsetHelper.dataPaddingLeft]" << offsetHelper.dataPaddingLeft;
 
     // check if padding can be applied on the right side
-    if (offsetHelper.dataOffsetReverse / padding >= 1)
+    if (padding > 0 && (offsetHelper.dataOffsetReverse) / padding >= 1)
       offsetHelper.dataPaddingRight = padding;
     else
       offsetHelper.dataPaddingRight = offsetHelper.dataOffsetReverse;
@@ -681,7 +681,9 @@ void m2::ImzMLSpectrumImageSource<MassAxisType, IntensityType>::GetImagePrivate(
         std::vector<MassAxisType> mzs;
         std::copy(p->GetXAxis().begin(),p->GetXAxis().end(), std::back_inserter(mzs));
         auto binaryDataAccessHelper = GetBinaryDataAccessHelper<MassAxisType>(mzs, xRangeCenter, xRangeTol, 0);
-        // MITK_INFO << "BinaryDataAccessHelper: " << binaryDataAccessHelper.dataModifiedLength;
+        //MITK_INFO << xRangeCenter << " " << xRangeTol << " " << mzs.front() << " " << mzs.back();
+                  
+
 
         for (unsigned int i = a; i < b; ++i)
         {
@@ -696,20 +698,19 @@ void m2::ImzMLSpectrumImageSource<MassAxisType, IntensityType>::GetImagePrivate(
           binaryDataToVector(
             f, spectrum.mzOffset, spectrum.mzLength, mzs.data()); // !! read mass axis for each spectrum
 
-          if (any(spectrumType.Format & (m2::SpectrumFormat::ProcessedCentroid | m2::SpectrumFormat::ProcessedProfile)))
-            binaryDataAccessHelper = GetBinaryDataAccessHelper<MassAxisType>(mzs, xRangeCenter, xRangeTol, 0);
+          //MITK_INFO << (any(spectrumType.Format &                     (m2::SpectrumFormat::ProcessedCentroid | m2::SpectrumFormat::ProcessedProfile)));
+            
+          auto [start, length] = m2::Signal::Subrange(mzs, xRangeCenter - xRangeTol, xRangeCenter + xRangeTol);
 
-          ints.resize(binaryDataAccessHelper.dataModifiedLength);
-
-          if (binaryDataAccessHelper.dataModifiedLength == 0)
+          ints.resize(length);
+          if (length == 0)
           {
             imageAccess.SetPixelByIndex(spectrum.index, 0);
             continue;
           }
 
-          const auto binaryFileOffset =
-            spectrum.intOffset + binaryDataAccessHelper.dataModifiedOffset * sizeof(IntensityType);
-          binaryDataToVector(f, binaryFileOffset, binaryDataAccessHelper.dataModifiedLength, ints.data());
+          const auto binaryFileOffset = spectrum.intOffset + start * sizeof(IntensityType);
+          binaryDataToVector(f, binaryFileOffset, length, ints.data());
 
           // TODO: Is it useful to normalize centroid data?
           IntensityType norm = normAccess.GetPixelByIndex(spectrum.index);
