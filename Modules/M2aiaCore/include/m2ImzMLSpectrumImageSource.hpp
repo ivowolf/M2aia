@@ -417,7 +417,7 @@ void m2::ImzMLSpectrumImageSource<MassAxisType, IntensityType>::GetImagePrivate(
         std::vector<IntensityType> ints;
         std::vector<MassAxisType> mzs;
         std::copy(p->GetXAxis().begin(),p->GetXAxis().end(), std::back_inserter(mzs));
-        auto binaryDataAccessHelper = GetBinaryDataAccessHelper<MassAxisType>(mzs, xRangeCenter, xRangeTol, 0);
+        // auto binaryDataAccessHelper = GetBinaryDataAccessHelper<MassAxisType>(mzs, xRangeCenter, xRangeTol, 0);
         //MITK_INFO << xRangeCenter << " " << xRangeTol << " " << mzs.front() << " " << mzs.back();
                   
 
@@ -438,14 +438,14 @@ void m2::ImzMLSpectrumImageSource<MassAxisType, IntensityType>::GetImagePrivate(
           //MITK_INFO << (any(spectrumType.Format &                     (m2::SpectrumFormat::ProcessedCentroid | m2::SpectrumFormat::ProcessedProfile)));
             
           auto [start, length] = m2::Signal::Subrange(mzs, xRangeCenter - xRangeTol, xRangeCenter + xRangeTol);
-
-          ints.resize(length);
-          if (length == 0)
+          if(start == mzs.size()-1 || length == 0)
           {
             imageAccess.SetPixelByIndex(spectrum.index, 0);
+            MITK_INFO << "length is zero for spectrum " << i << " with start " << start << " and length " << length;
             continue;
           }
-
+          
+          ints.resize(length);
           const auto binaryFileOffset = spectrum.intOffset + start * sizeof(IntensityType);
           binaryDataToVector(f, binaryFileOffset, length, ints.data());
 

@@ -371,27 +371,11 @@ namespace m2
     inline auto Subrange(const MassAxisType &mzs, const double &lower, const double &upper) noexcept
       -> std::pair<unsigned int, unsigned int>
     {
-      auto start = mzs.cend() - 1;
-      auto end = mzs.cend();
-      for (auto it = mzs.cbegin(); it < mzs.cend(); ++it)
-      {
-        if (*it >= lower)
-        {
-          start = it;
-          break;
-        }
-      }
-      for (auto it = mzs.cbegin(); it < mzs.cend(); ++it)
-      {
-        if (*it > upper)
-        {
-          end = it;
-          break;
-        }
-      }
-
-      // auto start = std::upper_bound(std::begin(mzs), std::end(mzs), lower) - 1;
-      // auto end = std::upper_bound(std::begin(mzs), std::end(mzs), upper) - 1;
+      auto start = std::lower_bound(std::begin(mzs), std::end(mzs), lower);
+      if (start == std::end(mzs) || *start > upper)
+        return {0, 0}; // no values in range
+      
+      auto end = std::upper_bound(std::begin(mzs), std::end(mzs), upper);
       return {std::distance(std::begin(mzs), start), std::distance(start, end)};
     }
 
