@@ -309,9 +309,9 @@ namespace m2
             double val = 0;
             const auto tol = input->ApplyTolerance(I.x.mean());
             // MITK_INFO << "Tolerance: " << tol;
-            const auto subRes = m2::Signal::Subrange(mzs, I.x.mean() - tol, I.x.mean() + tol);
-            const auto s = std::next(std::begin(ints), subRes.first);
-            const auto e = std::next(s, subRes.second);
+            const auto [startIndex, rangeLength] = m2::Signal::Subrange(mzs, I.x.mean() - tol, I.x.mean() + tol);
+            const auto s = std::next(std::begin(ints), startIndex);
+            const auto e = std::next(s, rangeLength);
             val = Signal::RangePooling<double>(s, e, input->GetRangePoolingStrategy());
 
             intsMasked.push_back(val);
