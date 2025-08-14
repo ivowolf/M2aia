@@ -438,10 +438,9 @@ void m2::ImzMLSpectrumImageSource<MassAxisType, IntensityType>::GetImagePrivate(
           //MITK_INFO << (any(spectrumType.Format &                     (m2::SpectrumFormat::ProcessedCentroid | m2::SpectrumFormat::ProcessedProfile)));
             
           auto [start, length] = m2::Signal::Subrange(mzs, xRangeCenter - xRangeTol, xRangeCenter + xRangeTol);
-          if(start == mzs.size()-1 || length == 0)
+          if(length == 0)
           {
             imageAccess.SetPixelByIndex(spectrum.index, 0);
-            MITK_INFO << "length is zero for spectrum " << i << " with start " << start << " and length " << length;
             continue;
           }
           
