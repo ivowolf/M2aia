@@ -196,9 +196,6 @@ namespace m2
     template <class T>
     const T GetPropertyValue(const std::string &key, T def = T()) const;
 
-    void ApplyGeometryOperation(mitk::Operation *);
-    void ApplyMoveOriginOperation(const mitk::Vector3D &v);
-
     inline void SaveModeOn() const { this->m_InSaveMode = true; }
     inline void SaveModeOff() const { this->m_InSaveMode = false; }
     double ApplyTolerance(double xValue) const;
