@@ -28,6 +28,9 @@
     </widget>
    </item>
    <item>
+    <widget class="QComboBox" name="imageTypeSelection"/>
+   </item>
+   <item>
     <widget class="QPushButton" name="btnUpdateList">
      <property name="toolTip">
       <string>Do image processing</string>

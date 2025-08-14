@@ -105,6 +105,13 @@ void m2Reconstruction3D::CreateQtPartControl(QWidget *parent)
     m_List2->setSortingEnabled(true);
   }
 
+  QComboBox *imageTypeSelection = m_Controls.imageTypeSelection;
+  for(auto type : m2::NormalizationStrategyTypeList)
+    {
+      imageTypeSelection->addItem(QString::fromStdString(m2::to_string(type)), QVariant::fromValue(to_underlying(type)));
+    } 
+
+
   connect(m_Controls.btnRemove,
           &QAbstractButton::clicked,
           this,
@@ -180,12 +187,27 @@ std::shared_ptr<m2::ElxRegistrationHelper> m2Reconstruction3D::RegistrationStep(
 {
   auto fixedData = GetImageDataById(fixedId, fixedSource);
   auto movingData = GetImageDataById(movingId, movingSource);
-  auto fixedImage = fixedData.image;
+  
+  
+  mitk::Image::Pointer fixedImage = fixedData.image;
+  mitk::Image::Pointer movingImage = movingData.image;
+  // Use the current combobox entry and its user data to determine NormalizationType
+  int index = m_Controls.imageTypeSelection->currentIndex();
+  QVariant userData = m_Controls.imageTypeSelection->itemData(index);
+  m2::NormalizationStrategyType normType = static_cast<m2::NormalizationStrategyType>(userData.toInt());
+  
+  if(normType != m2::NormalizationStrategyType::None){
+    if(auto sImage = dynamic_cast<m2::SpectrumImage*>(fixedData.image.GetPointer()))
+      fixedImage = sImage->GetNormalizationImage(normType);
+    
+    if(auto sImage = dynamic_cast<m2::SpectrumImage*>(movingData.image.GetPointer()))
+      movingImage = sImage->GetNormalizationImage(normType);
+  }
 
   
   // check if a transformer exist for fixed image and apply
   if (fixedTransformer && !fixedTransformer->GetTransformation().empty())
-  fixedImage = fixedTransformer->WarpImage(fixedImage);
+    fixedImage = fixedTransformer->WarpImage(fixedImage);
   
   std::vector<std::string> parameters = GetParameters();
   if(m_Controls.chkBxRigidOnly->isChecked()){
@@ -195,10 +217,17 @@ std::shared_ptr<m2::ElxRegistrationHelper> m2Reconstruction3D::RegistrationStep(
   
   // start of the registration procedure
   auto elxHelper = std::make_shared<m2::ElxRegistrationHelper>();
-  elxHelper->SetImageData(fixedImage, movingData.image);
+  elxHelper->SetImageData(fixedImage, movingImage);
   elxHelper->SetRegistrationParameters(parameters);
   MITK_INFO << "Registering " << movingData.node->GetName() << " to " << fixedData.node->GetName() ;
   elxHelper->GetRegistration();
+
+  // workaround to use NormalizationImages
+  if(normType != m2::NormalizationStrategyType::None){
+    if (fixedTransformer && !fixedTransformer->GetTransformation().empty())
+      fixedImage = fixedTransformer->WarpImage(fixedData.image);
+    elxHelper->SetImageData(fixedImage, movingData.image);
+  }
   
   return elxHelper;
 }
@@ -473,6 +502,8 @@ void m2Reconstruction3D::OnUpdateList()
       item->setText((node->GetName()).c_str());
       item->setData(Qt::UserRole, QVariant::fromValue(i));
 
+          
+      
       DataTuple tuple;
       tuple.node = node;
       tuple.image = data;
