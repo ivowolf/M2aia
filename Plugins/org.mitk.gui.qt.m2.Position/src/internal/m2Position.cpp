@@ -37,6 +37,7 @@ See LICENSE.txt or https://www.github.com/jtfcordes/m2aia for details.
 #include <mitkApplyTransformMatrixOperation.h>
 #include <mitkInteractionConst.h>
 #include <qpushbutton.h>
+#include <mitkRenderingManager.h>
 
 const std::string m2Position::VIEW_ID = "org.mitk.views.m2.Position";
 
@@ -58,10 +59,10 @@ void m2Position::CreateQtPartControl(QWidget *parent)
   connect(scRotateLeft, &QShortcut::activated, [this]() { this->Rotate(-m_Controls.rotationBox->value()); });
   connect(scRotateRight, &QShortcut::activated, [this]() { this->Rotate(m_Controls.rotationBox->value()); });
 
-  auto left = [this]() { this->Move({-m_Controls.spnBxStepWidth->value(), 0}); };
-  auto right = [this]() { this->Move({m_Controls.spnBxStepWidth->value(), 0}); };
-  auto up = [this]() { this->Move({0, -m_Controls.spnBxStepWidth->value()}); };
-  auto down = [this]() { this->Move({0, m_Controls.spnBxStepWidth->value()}); };
+  auto left = [this]() { this->Move({float(-m_Controls.spnBxStepWidth->value()), 0.0f}); };
+  auto right = [this]() { this->Move({float(m_Controls.spnBxStepWidth->value()), 0.0f}); };
+  auto up = [this]() { this->Move({0.0f, float(-m_Controls.spnBxStepWidth->value())}); };
+  auto down = [this]() { this->Move({0.0f, float(m_Controls.spnBxStepWidth->value())}); };
 
   connect(m_Controls.btnLeft, &QPushButton::clicked, left);
   connect(m_Controls.btnRight, &QPushButton::clicked, right);
@@ -102,7 +103,16 @@ void m2Position::OnSelectionChanged(berry::IWorkbenchPart::Pointer /*source*/,
   }
 }
 
-void m2Position::Move(std::array<int, 2> &&vec)
+void m2Position::MoveImage(mitk::Image *image, std::array<float, 2> vec)
+{
+  mitk::Vector3D v;
+  v[0] = vec[0] * 10e-4;
+  v[1] = vec[1] * 10e-4;
+  v[2] = 0;
+  image->GetGeometry()->Translate(v);  
+}
+
+void m2Position::Move(std::array<float, 2> vec)
 {
   QList<mitk::DataNode::Pointer> nodes = this->GetDataManagerSelection();
   if (nodes.empty())
@@ -113,39 +123,55 @@ void m2Position::Move(std::array<int, 2> &&vec)
     mitk::BaseData *data = node->GetData();
     if (data)
     {
-      // test if this data item is an image or not (could also be a surface or something totally different)
-      mitk::Vector3D v;
-      v[0] = vec[0] * 10e-4;
-      v[1] = vec[1] * 10e-4;
-      v[2] = 0;
-      if (m2::SpectrumImage *image = dynamic_cast<m2::SpectrumImage *>(data))
+      if (mitk::Image *image = dynamic_cast<mitk::Image *>(data))
       {
+        MoveImage(image, std::move(vec));
 
-        image->ApplyMoveOriginOperation(v);
+        auto derivedNodes = GetDataStorage()->GetDerivations(node, mitk::TNodePredicateDataType<mitk::Image>::New());
+        for (auto derivedNode : *derivedNodes)
+        {
+          if (auto derivedImage = dynamic_cast<mitk::Image *>(derivedNode->GetData()))
+          {
+            MoveImage(derivedImage, vec);
+          }
+        }
+        mitk::RenderingManager::GetInstance()->InitializeViewsByBoundingObjects(this->GetDataStorage());
+        RequestRenderWindowUpdate();
       }
-      else if (mitk::Image *image = dynamic_cast<mitk::Image *>(data))
-      {
-        auto geometry = image->GetGeometry();
-        geometry->Translate(v);
-      }
-      RequestRenderWindowUpdate();
-
-      // RequestRenderWindowUpdate();
-      // auto deriv = GetDataStorage()->GetDerivations(node, mitk::TNodePredicateDataType<mitk::PointSet>::New());
-      // if (deriv->Size())
-      // {
-      //   for (auto p : *deriv)
-      //   {
-      //     auto geometry = p->GetData()->GetGeometry();
-      //     auto pos = geometry->GetOrigin();
-      //     auto space = geometry->GetSpacing();
-      //     pos[0] = pos[0] + vec.at(0) * space[0];
-      //     pos[1] = pos[1] + vec.at(1) * space[1];
-      //     geometry->SetOrigin(pos);
-      //   }
-      // }
     }
   }
+}
+
+void m2Position::MirrorImage(mitk::Image * image, int w){
+    auto geometry = image->GetGeometry();
+    auto t = geometry->GetVtkTransform();
+    auto m = t->GetMatrix();
+    auto m0 = m->GetElement(0, 0);
+    auto m1 = m->GetElement(1, 1);
+
+    m->SetElement(0, 0, (w == 0) ? -m0 : m0); // flip x-axis
+    m->SetElement(1, 1, (w == 1) ? -m1 : m1); // flip y-axis
+    image->GetGeometry()->SetIndexToWorldTransformByVtkMatrixWithoutChangingSpacing(m);
+    
+    auto origin = geometry->GetOrigin();
+    auto spacing = geometry->GetSpacing();
+    if (w == 0) // mirrored along x-axis
+    {
+      auto size = geometry->GetExtent(0);
+      if(m0 < 0) // if the x-axis was flipped
+        MoveImage(image, {float(spacing[0] * (size - 1)), 0.0f});
+      else if (m0 > 0) // if the x-axis was not flipped
+        MoveImage(image, {float(-spacing[0] * (size - 1)), 0.0f});
+    }
+    else if (w == 1) // mirrored along y-axis
+    {
+      auto size = geometry->GetExtent(1);
+      if(m1 < 0) // if the y-axis was flipped
+        MoveImage(image, {float(spacing[1] * (size - 1)), 0.0f});
+      else if (m1 > 0) // if the y-axis was not flipped
+        MoveImage(image, {float(-spacing[1] * (size - 1)), 0.0f});
+    }
+    geometry->SetOrigin(origin);
 }
 
 void m2Position::Mirror(int w)
@@ -160,27 +186,43 @@ void m2Position::Mirror(int w)
     if (data)
     {
       // test if this data item is an image or not (could also be a surface or something totally different)
-      m2::SpectrumImage *image = dynamic_cast<m2::SpectrumImage *>(data);
-      if (image)
+      
+      if (auto image = dynamic_cast<m2::SpectrumImage *>(data))
       {
-        auto geometry = image->GetGeometry();
-        auto t = geometry->GetVtkTransform();
-        auto m = t->GetMatrix();
-        m->SetElement(0, 0, (w == 0) ? -1 : 1); // flip x-axis
-        m->SetElement(1, 1, (w == 1) ? -1 : 1); // flip y-axis
-        image->GetGeometry()->SetIndexToWorldTransformByVtkMatrixWithoutChangingSpacing(m);
-        image->Modified();
-        mitk::RenderingManager::GetInstance()->InitializeViewsByBoundingObjects(this->GetDataStorage());
-        RequestRenderWindowUpdate();
+        MirrorImage(image, w);
+        auto derivedNodes = GetDataStorage()->GetDerivations(node, mitk::TNodePredicateDataType<mitk::Image>::New());
+        for (auto derivedNode : *derivedNodes)
+        {
+          if (auto derivedImage = dynamic_cast<mitk::Image *>(derivedNode->GetData()))
+          {
+            MirrorImage(derivedImage, w);
+          }
+        }
       }
+      
       else
       {
         QMessageBox::warning(nullptr, "Warning", "This operation is only supported for images.");
       }
+          mitk::RenderingManager::GetInstance()->InitializeViewsByBoundingObjects(this->GetDataStorage());
+          RequestRenderWindowUpdate();
     }
   }
 }
 
+
+void m2Position::RotateImage(mitk::Image *image, float angleDeg)
+{
+  std::unique_ptr<mitk::RotationOperation> op;
+  mitk::ScalarType rotAx[3] = {0, 0, 1};
+
+  op.reset(new mitk::RotationOperation(
+    mitk::EOperations::OpROTATE, image->GetGeometry()->GetCenter(), mitk::Vector3D(rotAx), angleDeg));
+  auto manipulated = image->GetGeometry()->Clone();
+  manipulated->ExecuteOperation(op.get());
+  image->GetGeometry()->SetIdentity();
+  image->GetGeometry()->Compose(manipulated->GetIndexToWorldTransform());
+}
 
 void m2Position::Rotate(float angleDeg)
 {
@@ -193,43 +235,20 @@ void m2Position::Rotate(float angleDeg)
     mitk::BaseData *data = node->GetData();
     if (data)
     {
-      // test if this data item is an image or not (could also be a surface or something totally different)
-
-      std::unique_ptr<mitk::RotationOperation> op;
-      mitk::ScalarType rotAx[3] = {0, 0, 1};
-
-      if (m2::SpectrumImage *image = dynamic_cast<m2::SpectrumImage *>(data))
+      if(auto image = dynamic_cast<mitk::Image *>(data))
       {
-        op.reset(new mitk::RotationOperation(
-          mitk::EOperations::OpROTATE, image->GetGeometry()->GetCenter(), mitk::Vector3D(rotAx), angleDeg));
-        image->ApplyGeometryOperation(op.get());
-        RequestRenderWindowUpdate();
-
-        // auto deriv = GetDataStorage()->GetDerivations(node, mitk::TNodePredicateDataType<mitk::PointSet>::New());
-
-        // for (auto p : *deriv)
-        // {
-        //   auto manipulatedGeometry = p->GetData()->GetGeometry()->Clone();
-        //   op.reset(new mitk::RotationOperation(mitk::EOperations::OpROTATE,
-        //                                        image->GetGeometry()->GetCenter(),
-        //                                        mitk::Vector3D(rotAx),
-        //                                        angleDeg));
-        //   manipulatedGeometry->ExecuteOperation(op.get());
-        //   p->GetData()->GetGeometry()->SetIdentity();
-        //   p->GetData()->GetGeometry()->Compose(manipulatedGeometry->GetIndexToWorldTransform());
-        // }
-        // RequestRenderWindowUpdate();
+        // Rotate the image
+        RotateImage(image, angleDeg);
+        auto derivedNodes = GetDataStorage()->GetDerivations(node, mitk::TNodePredicateDataType<mitk::Image>::New());
+        for (auto derivedNode : *derivedNodes)
+        {
+          if (auto derivedImage = dynamic_cast<mitk::Image *>(derivedNode->GetData()))
+          {
+            RotateImage(derivedImage, angleDeg);
+          }
+        }
       }
-      else if (auto image = dynamic_cast<mitk::Image *>(data))
-      {
-        op.reset(new mitk::RotationOperation(
-          mitk::EOperations::OpROTATE, image->GetGeometry()->GetCenter(), mitk::Vector3D(rotAx), angleDeg));
-        auto manipulated = image->GetGeometry()->Clone();
-        manipulated->ExecuteOperation(op.get());
-        image->GetGeometry()->SetIdentity();
-        image->GetGeometry()->Compose(manipulated->GetIndexToWorldTransform());
-        RequestRenderWindowUpdate();
-      }
-    }
+    } 
+ 
   }
 }

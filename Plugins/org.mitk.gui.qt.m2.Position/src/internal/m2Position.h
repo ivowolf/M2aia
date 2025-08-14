@@ -52,9 +52,13 @@ protected:
 
   /// \brief Called when the user clicks the GUI button
   void Rotate(float angleDeg);
-  void Mirror(int angleDeg);
-  void Move(std::array<int,2> && vec);
-  
+  void RotateImage(mitk::Image * image, float angleDeg);
+
+  void Mirror(int w);
+  void MirrorImage(mitk::Image * image, int w);
+
+  void Move(std::array<float,2> vec);
+  void MoveImage(mitk::Image * image, std::array<float,2> vec);
 
   Ui::m2PositionControls m_Controls;
 };
