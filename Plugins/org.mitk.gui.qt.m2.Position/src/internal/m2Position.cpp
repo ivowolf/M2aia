@@ -47,27 +47,16 @@ void m2Position::CreateQtPartControl(QWidget *parent)
   // create GUI widgets from the Qt Designer's .ui file
   m_Controls.setupUi(parent);
 
-  auto rotateLeft = [this]() { this->Rotate(-0.1); };
-  auto rotateRight = [this]() { this->Rotate(0.1); };
+  connect(m_Controls.btnRotatePlus, &QPushButton::clicked, [this]() { this->Rotate(m_Controls.rotationBox->value()); });
+  connect(m_Controls.btnRotateMinus, &QPushButton::clicked, [this]() { this->Rotate(-m_Controls.rotationBox->value()); });
 
-  connect(m_Controls.btnPlus1, &QPushButton::clicked, [this]() { this->Rotate(1); });
-  connect(m_Controls.btnPlus5, &QPushButton::clicked, [this]() { this->Rotate(5); });
-  connect(m_Controls.btnPlus15, &QPushButton::clicked, [this]() { this->Rotate(15); });
-  connect(m_Controls.btnPlus45, &QPushButton::clicked, [this]() { this->Rotate(45); });
-  connect(m_Controls.btnPlus90, &QPushButton::clicked, [this]() { this->Rotate(90); });
-  
-  connect(m_Controls.btnMinus1, &QPushButton::clicked, [this]() { this->Rotate(-1); });
-  connect(m_Controls.btnMinus5, &QPushButton::clicked, [this]() { this->Rotate(-5); });
-  connect(m_Controls.btnMinus15, &QPushButton::clicked, [this]() { this->Rotate(-15); });
-  connect(m_Controls.btnMinus45, &QPushButton::clicked, [this]() { this->Rotate(-45); });
-  connect(m_Controls.btnMinus90, &QPushButton::clicked, [this]() { this->Rotate(-90); });
-  // connect(m_Controls.mirrorH, &QPushButton::clicked, [this]() {this->Mirror(0); });
-  // connect(m_Controls.mirrorV, &QPushButton::clicked, [this]() {this->Mirror(1); });
+  connect(m_Controls.mirrorH, &QPushButton::clicked, [this]() {this->Mirror(0); });
+  connect(m_Controls.mirrorV, &QPushButton::clicked, [this]() {this->Mirror(1); });
 
   QShortcut *scRotateLeft = new QShortcut(QKeySequence(Qt::Key_7), parent);
   QShortcut *scRotateRight = new QShortcut(QKeySequence(Qt::Key_9), parent);
-  connect(scRotateLeft, &QShortcut::activated, rotateLeft);
-  connect(scRotateRight, &QShortcut::activated, rotateRight);
+  connect(scRotateLeft, &QShortcut::activated, [this]() { this->Rotate(-m_Controls.rotationBox->value()); });
+  connect(scRotateRight, &QShortcut::activated, [this]() { this->Rotate(m_Controls.rotationBox->value()); });
 
   auto left = [this]() { this->Move({-m_Controls.spnBxStepWidth->value(), 0}); };
   auto right = [this]() { this->Move({m_Controls.spnBxStepWidth->value(), 0}); };
@@ -83,6 +72,16 @@ void m2Position::CreateQtPartControl(QWidget *parent)
   QShortcut *scDown = new QShortcut(QKeySequence(Qt::Key_2), parent);
   QShortcut *scLeft = new QShortcut(QKeySequence(Qt::Key_4), parent);
   QShortcut *scRight = new QShortcut(QKeySequence(Qt::Key_6), parent);
+
+  QShortcut *scRotatePlus = new QShortcut(QKeySequence(Qt::Key_Plus), parent);
+  QShortcut *scRotateMinus = new QShortcut(QKeySequence(Qt::Key_Minus), parent);
+ 
+  QShortcut *scStepPlus = new QShortcut(QKeySequence(Qt::SHIFT | Qt::Key_Plus), parent);
+  QShortcut *scStepMinus = new QShortcut(QKeySequence(Qt::SHIFT | Qt::Key_Minus), parent);
+  connect(scStepPlus, &QShortcut::activated, [this]() { m_Controls.spnBxStepWidth->setValue(m_Controls.spnBxStepWidth->value() + 5); });
+  connect(scStepMinus, &QShortcut::activated, [this]() { m_Controls.spnBxStepWidth->setValue(m_Controls.spnBxStepWidth->value() - 5); });
+  connect(scRotatePlus, &QShortcut::activated, [this]() { m_Controls.rotationBox->setValue(m_Controls.rotationBox->value()*1.1); });
+  connect(scRotateMinus, &QShortcut::activated, [this]() { m_Controls.rotationBox->setValue(m_Controls.rotationBox->value()*0.9); });
 
   connect(scUp, &QShortcut::activated, up);
   connect(scDown, &QShortcut::activated, down);
@@ -164,20 +163,24 @@ void m2Position::Mirror(int w)
       m2::SpectrumImage *image = dynamic_cast<m2::SpectrumImage *>(data);
       if (image)
       {
-        std::unique_ptr<mitk::ApplyTransformMatrixOperation> op;
-
-        vtkSmartPointer<vtkMatrix4x4> m = vtkMatrix4x4::New();
-        m->Identity();
-        m->SetElement(w, w, -1.0);
-        op.reset(new mitk::ApplyTransformMatrixOperation(
-          mitk::EOperations::OpAPPLYTRANSFORMMATRIX, m, image->GetGeometry()->GetCenter()));
-
-        image->ApplyGeometryOperation(op.get());
+        auto geometry = image->GetGeometry();
+        auto t = geometry->GetVtkTransform();
+        auto m = t->GetMatrix();
+        m->SetElement(0, 0, (w == 0) ? -1 : 1); // flip x-axis
+        m->SetElement(1, 1, (w == 1) ? -1 : 1); // flip y-axis
+        image->GetGeometry()->SetIndexToWorldTransformByVtkMatrixWithoutChangingSpacing(m);
+        image->Modified();
+        mitk::RenderingManager::GetInstance()->InitializeViewsByBoundingObjects(this->GetDataStorage());
         RequestRenderWindowUpdate();
+      }
+      else
+      {
+        QMessageBox::warning(nullptr, "Warning", "This operation is only supported for images.");
       }
     }
   }
 }
+
 
 void m2Position::Rotate(float angleDeg)
 {
