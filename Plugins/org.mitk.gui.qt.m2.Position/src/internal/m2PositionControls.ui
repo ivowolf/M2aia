@@ -69,7 +69,7 @@ Controls: numpad +/- to apply +/- 10% to rotation.</string>
     <widget class="QLabel" name="label_3">
      <property name="text">
       <string>Translation (center):
-Controls: Use shift and numpad +/- to apply +/- 10% to transflation.</string>
+Controls: Use shift and numpad +/- 5 μm to transflation.</string>
      </property>
      <property name="wordWrap">
       <bool>true</bool>
