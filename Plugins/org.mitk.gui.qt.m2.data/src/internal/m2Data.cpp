@@ -22,6 +22,8 @@ See LICENSE.txt for details.
 #include <QComboBox>
 #include <QInputDialog>
 #include <QmitkRenderWindow.h>
+#include <QMainWindow>
+#include <QStatusBar>
 #include <QtConcurrent>
 #include <boost/format.hpp>
 #include <itkRescaleIntensityImageFilter.h>
@@ -871,20 +873,6 @@ void m2Data::OnGenerateImageData(qreal xRangeCenter, qreal xRangeTol)
     xRangeTol = isPpm ? m2::PartPerMillionToFactor(xRangeTol) * xRangeCenter : xRangeTol;
   }
 
-  // Add element to position list if not already present
-  // auto text = "m/z " + QString::number(xRangeCenter) + " ± " + QString::number(xRangeTol, 103, 3) + " Da";
-  // if(m_Controls.listWidgetPositions->rowCount() == 0){
-  //   m_Controls.listWidgetPositions->insertRow(0);
-  //   auto item = new QTableWidgetItem(text);
-  //   m_Controls.listWidgetPositions->setItem(0, 0, item);
-    
-
-
-  // }else{
-  //   m_Controls.listWidgetPositions->itemAt(0, 0)->setText(text);
-  // }
-
-
   
   emit m2::UIUtils::Instance()->RangeChanged(xRangeCenter, xRangeTol);
   this->m_Controls.spnBxMz->setValue(xRangeCenter);
@@ -892,15 +880,14 @@ void m2Data::OnGenerateImageData(qreal xRangeCenter, qreal xRangeTol)
 
   QString labelText = str(boost::format("%.4f +/- %.2f Da") % xRangeCenter % xRangeTol).c_str();
 
-  if (nodesToProcess->size() == 1)
+  if (nodesToProcess->size())
   {
     auto node = nodesToProcess->front();
     if (auto image = dynamic_cast<m2::SpectrumImage *>(node->GetData()))
     {
       std::string xLabel = image->GetSpectrumType().XAxisLabel;
-      labelText = "[" + QString(xLabel.c_str()) + "]" + labelText;
+      labelText = "" + QString(xLabel.c_str()) + " " + labelText;
     }
-    labelText = QString(node->GetName().c_str()) + "\n" + labelText;
   }
   
   this->UpdateTextAnnotations(labelText.toStdString());
@@ -945,28 +932,16 @@ void m2Data::OnRenderSpectrumImages(double min, double max)
   Q_UNUSED(max);
 }
 
-void m2Data::UpdateTextAnnotations(std::string /*text*/)
+void m2Data::UpdateTextAnnotations(std::string text)
 {
-  // static const std::array<std::string, 3> windownames = {"axial", "sagittal", "coronal"};
-  // if (m_TextAnnotations.size() != 3)
-  // {
-  //   m_TextAnnotations.clear();
-  //   for (int i = 0; i < 3; i++)
-  //   {
-  //     m_TextAnnotations.push_back(mitk::TextAnnotation2D::New());
-  //     auto renderer = GetRenderWindowPart()->GetQmitkRenderWindow(windownames[i].c_str())->GetRenderer();
-  //     mitk::LayoutAnnotationRenderer::AddAnnotation(m_TextAnnotations.back(), renderer);
-  //     m_TextAnnotations.back()->SetFontSize(15);
-  //     float color[] = {0.7, 0.7, 0.7};
-  //     m_TextAnnotations.back()->SetFontSize(20);
-
-  //     m_TextAnnotations.back()->SetColor(color);
-  //   }
-  // }
-  // for (auto anno : m_TextAnnotations)
-  // {
-  //   anno->SetText(text);
-  // }
+  if (auto mainWindow = qobject_cast<QMainWindow *>(QApplication::activeWindow()))
+  {
+    
+    if (auto statusBar = mainWindow->statusBar())
+{
+      statusBar->showMessage(QString::fromStdString(text));
+    }
+  }
 }
 
 mitk::DataNode::Pointer m2Data::FindChildNodeRegex(mitk::DataNode::Pointer &parent, std::string regexString)
