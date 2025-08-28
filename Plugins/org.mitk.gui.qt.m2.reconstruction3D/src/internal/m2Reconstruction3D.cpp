@@ -83,7 +83,7 @@ void m2Reconstruction3D::CreateQtPartControl(QWidget *parent)
   connect(m_Controls.btnStartStackExport, SIGNAL(clicked()), this, SLOT(OnStartExport()));
 
   {
-    m_List1 = m_Controls.listWidget;
+    m_List1 = m_Controls.modality1ListWidget;
     m_List1->setDragEnabled(true);
     m_List1->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_List1->setDragDropMode(QAbstractItemView::NoDragDrop);
@@ -94,7 +94,7 @@ void m2Reconstruction3D::CreateQtPartControl(QWidget *parent)
     m_List1->setSortingEnabled(true);
   }
   {
-    m_List2 = m_Controls.listWidget_2;
+    m_List2 = m_Controls.modality2ListWidget;
     m_List2->setDragEnabled(true);
     m_List2->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_List2->setDragDropMode(QAbstractItemView::NoDragDrop);
@@ -307,7 +307,7 @@ void m2Reconstruction3D::OnStartStacking()
   double spacingZ = m2::MicroMeterToMilliMeter(m_Controls.spinBoxZSpacing->value());
   // prepare stacks
   auto spectrumImageStack1 = m2::SpectrumImageStack::New(stackSize, spacingZ);
-  auto spectrumImageStack2 = m2::SpectrumImageStack::New(stackSize, spacingZ);
+  m2::SpectrumImageStack::Pointer spectrumImageStack2;
   /*
    * Two modalities
    * M2 is optional
@@ -335,10 +335,9 @@ void m2Reconstruction3D::OnStartStacking()
   disconnect(&m_ReconstructionFutureWatcher, &QFutureWatcher<void>::progressValueChanged, nullptr, nullptr);
   
    // Handle finished
-  connect(&m_ReconstructionFutureWatcher, &QFutureWatcher<void>::finished, this, [doMultiModalImageRegistration, stackNames, spectrumImageStack1, spectrumImageStack2, this](){
+  connect(&m_ReconstructionFutureWatcher, &QFutureWatcher<void>::finished, this, [spacingZ, stackSize, doMultiModalImageRegistration, stackNames, spectrumImageStack1, spectrumImageStack2, this]() mutable {
     QMessageBox::information(m_Parent, "Reconstruction Complete", "Reconstruction complete!");
     mitk::ProgressBar::GetInstance()->Reset();
-
 
     auto node = mitk::DataNode::New();
     node->SetData(spectrumImageStack1);
@@ -360,6 +359,7 @@ void m2Reconstruction3D::OnStartStacking()
 
     if (doMultiModalImageRegistration)
     {
+      spectrumImageStack2 = m2::SpectrumImageStack::New(stackSize, spacingZ);
       spectrumImageStack2->InitializeProcessor();
       spectrumImageStack2->InitializeGeometry();
 
@@ -367,7 +367,6 @@ void m2Reconstruction3D::OnStartStacking()
       node->SetData(spectrumImageStack2);
       node->SetName(stackNames[1] + "(2)");
       GetDataStorage()->Add(node);
-
 
       // auto transformers = spectrumImageStack2->GetSliceTransformers();
       // unsigned int i = 0;

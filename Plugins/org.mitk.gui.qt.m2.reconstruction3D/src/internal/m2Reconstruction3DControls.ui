@@ -43,37 +43,41 @@
    <item>
     <layout class="QHBoxLayout" name="dataSelection">
      <item>
-      <layout class="QVBoxLayout" name="verticalLayout_3">
+      <layout class="QVBoxLayout" name="modality1_layout">
        <item>
-        <widget class="QListWidget" name="listWidget"/>
-       </item>
-       <item>
-        <widget class="QPushButton" name="btnSwitch">
-         <property name="text">
-          <string>Switch column</string>
-         </property>
-        </widget>
+        <widget class="QListWidget" name="modality1ListWidget"/>
        </item>
       </layout>
      </item>
      <item>
-      <layout class="QVBoxLayout" name="verticalLayout_4">
+      <layout class="QVBoxLayout" name="modality2_layout">
        <item>
-        <widget class="QListWidget" name="listWidget_2"/>
-       </item>
-       <item>
-        <widget class="QPushButton" name="btnRemove">
-         <property name="text">
-          <string>Remove selected</string>
-         </property>
-        </widget>
+        <widget class="QListWidget" name="modality2ListWidget"/>
        </item>
       </layout>
      </item>
     </layout>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout">
+    <layout class="QHBoxLayout" name="horizontalLayout_9">
+     <item>
+      <widget class="QPushButton" name="btnSwitch">
+       <property name="text">
+        <string>Switch column</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btnRemove">
+       <property name="text">
+        <string>Remove selected</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="zSpacing_layout">
      <item>
       <widget class="QLabel" name="label_2">
        <property name="minimumSize">
@@ -121,60 +125,12 @@
    <item>
     <widget class="QCheckBox" name="chkBxCoRegistrationToSelected">
      <property name="text">
-      <string>Coregister all images to the selected</string>
+      <string>Coregister all images to the selected/center slice</string>
      </property>
     </widget>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_7">
-     <item>
-      <widget class="QCheckBox" name="chkBxUseMovingMask">
-       <property name="text">
-        <string>Use moving mask</string>
-       </property>
-       <property name="checked">
-        <bool>false</bool>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QCheckBox" name="chkBxUseFixedMask">
-       <property name="text">
-        <string>Use fixed mask</string>
-       </property>
-       <property name="checked">
-        <bool>false</bool>
-       </property>
-      </widget>
-     </item>
-    </layout>
-   </item>
-   <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_8">
-     <item>
-      <widget class="QCheckBox" name="chkBxUseMovingMaskDeform">
-       <property name="text">
-        <string>Use moving mask (deformable)</string>
-       </property>
-       <property name="checked">
-        <bool>false</bool>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QCheckBox" name="chkBxUseFixedMaskDeform">
-       <property name="text">
-        <string>Use fixed mask (deformable)</string>
-       </property>
-       <property name="checked">
-        <bool>false</bool>
-       </property>
-      </widget>
-     </item>
-    </layout>
-   </item>
-   <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_2">
+    <layout class="QHBoxLayout" name="initialAlignment_layout">
      <item>
       <widget class="QLabel" name="label_6">
        <property name="text">
@@ -270,7 +226,7 @@
     </widget>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_3">
+    <layout class="QHBoxLayout" name="rigidIterations_layout">
      <item>
       <widget class="QLabel" name="label">
        <property name="text">
@@ -294,7 +250,7 @@
     </layout>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_4">
+    <layout class="QHBoxLayout" name="deformableIterations_layout">
      <item>
       <widget class="QLabel" name="label_3">
        <property name="text">
@@ -315,7 +271,7 @@
     </layout>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_5">
+    <layout class="QHBoxLayout" name="mainControls_layout">
      <item>
       <widget class="QPushButton" name="btnEditParameterFiles">
        <property name="text">
@@ -340,29 +296,9 @@
     </widget>
    </item>
    <item>
-    <spacer name="verticalSpacer">
-     <property name="orientation">
-      <enum>Qt::Orientation::Vertical</enum>
-     </property>
-     <property name="sizeHint" stdset="0">
-      <size>
-       <width>20</width>
-       <height>40</height>
-      </size>
-     </property>
-    </spacer>
-   </item>
-   <item>
     <widget class="QLabel" name="label_4">
      <property name="text">
       <string>Export stack data:</string>
-     </property>
-    </widget>
-   </item>
-   <item>
-    <widget class="QmitkSingleNodeSelectionWidget" name="stackImageSelector" native="true">
-     <property name="toolTip">
-      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Select a SpectrumImage. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
      </property>
     </widget>
    </item>
@@ -377,6 +313,26 @@
     <widget class="QCommandLinkButton" name="btnStartStackExport">
      <property name="text">
       <string>Start stack export</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <spacer name="verticalSpacer">
+     <property name="orientation">
+      <enum>Qt::Orientation::Vertical</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>40</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+   <item>
+    <widget class="QmitkSingleNodeSelectionWidget" name="stackImageSelector" native="true">
+     <property name="toolTip">
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Select a SpectrumImage. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
      </property>
     </widget>
    </item>
