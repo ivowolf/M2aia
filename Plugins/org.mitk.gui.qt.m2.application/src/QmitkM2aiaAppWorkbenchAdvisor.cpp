@@ -240,6 +240,12 @@ void QmitkM2aiaAppWorkbenchWindowAdvisor::PostWindowOpen()
   {
     auto m_Preferences = prefService->GetSystemPreferences()->Node("org.mitk.editors.stdmultiwidget");
     m_Preferences->Put("DepartmentLogo", ":/M2aiaApplication/defaultWatermark.png");
+
+    m_Preferences->Put("stdmulti.widget0 corner annotation", "XY");
+    m_Preferences->Put("stdmulti.widget1 corner annotation", "XZ");
+    m_Preferences->Put("stdmulti.widget2 corner annotation", "YZ");
+    m_Preferences->Put("stdmulti.widget3 corner annotation", "3D");
+    
   }
 
 
