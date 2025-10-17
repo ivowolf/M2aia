@@ -39,18 +39,12 @@ void m2::SpectrumContainerImage::GetImage(double x, double tol, const mitk::Imag
 
   std::shared_ptr<mitk::ImagePixelReadAccessor<mitk::LabelSetImage::PixelType, 3>> maskAccess;
 
-  MITK_INFO("FSM") << "Image generation started!";
-
   if (mask)
-  {
     maskAccess.reset(new mitk::ImagePixelReadAccessor<mitk::LabelSetImage::PixelType, 3>(mask));
-    MITK_INFO << "> Use mask image";
-  }
   
   GetPropertyList()->SetProperty("cm¯¹", mitk::DoubleProperty::New(x));
   GetPropertyList()->SetProperty("tol", mitk::DoubleProperty::New(tol));
   
-
   const auto &xs = GetXAxis();
   std::vector<double> kernel;
 

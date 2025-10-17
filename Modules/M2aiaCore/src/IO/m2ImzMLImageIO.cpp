@@ -29,6 +29,7 @@ See LICENSE.txt or https://www.github.com/jtfcordes/m2aia for details.
 #include <mitkImagePixelReadAccessor.h>
 #include <mitkImagePixelWriteAccessor.h>
 #include <mitkLocaleSwitch.h>
+#include <mitkImageCast.h>
 #include <signal/m2PeakDetection.h>
 #include <signal/m2Pooling.h>
 
@@ -603,27 +604,36 @@ namespace m2
     return Supported;
   }
 
-  std::string ImzMLImageIO::RemoveExtensionFromPath(std::string path)
-  {
-    itksys::SystemTools::ReplaceString(path, ".imzML", "");
-    itksys::SystemTools::ReplaceString(path, ".imzml", "");
-    return path;
-
-    mitkThrow() << "The given file location requires an valid file ending.";
-  }
 
   std::vector<mitk::BaseData::Pointer> ImzMLImageIO::DoRead()
   {
     std::string mzGroupId, intGroupId;
     m2::ImzMLSpectrumImage::Pointer object = m2::ImzMLSpectrumImage::New();
 
-    auto pathWithoutExtension = RemoveExtensionFromPath(GetInputLocation());
-    if (!itksys::SystemTools::FileExists(pathWithoutExtension + ".ibd"))
-      mitkThrow() << "No such file " << pathWithoutExtension;
+    auto filename = itksys::SystemTools::GetFilenameWithoutExtension(GetInputLocation());
+    auto parentDir = itksys::SystemTools::GetParentDirectory(GetInputLocation());
+
+
+    auto pathWithoutExtension = parentDir + "/" + filename;
+    std::string ibdPath = pathWithoutExtension + ".ibd";
+    std::string ibdPathUpper = pathWithoutExtension + ".IBD";
+    if (itksys::SystemTools::FileExists(ibdPath))
+    {
+      MITK_INFO << "Found binary file: " << ibdPath;
+    }
+    else if (itksys::SystemTools::FileExists(ibdPathUpper))
+    {
+      MITK_INFO << "Found binary file: " << ibdPathUpper;
+      ibdPath = ibdPathUpper;
+    }
+    else
+    {
+      MITK_WARN << "No binary file (.ibd/.IBD) found for: " << pathWithoutExtension;
+    }
 
     // m2::ImzMLSpectrumImage::ImzMLImageSource source;
     object->SetImzMLDataPath(this->GetInputLocation());
-    object->SetBinaryDataPath(pathWithoutExtension + ".ibd");
+    object->SetBinaryDataPath(ibdPath);
     // object->GetImzMLSpectrumImageSourceList().emplace_back(source);
     object->GetSpectrumType().Format = SpectrumFormat::None;
     object->GetSpectrumType().XAxisLabel = "m/z";
@@ -743,7 +753,8 @@ namespace m2
 
   void ImzMLImageIO::LoadAssociatedData(m2::ImzMLSpectrumImage *object)
   {
-    auto pathWithoutExtension = RemoveExtensionFromPath(GetInputLocation());
+    auto pathWithoutExtension = itksys::SystemTools::GetParentDirectory(GetInputLocation()) + "/" +
+                             itksys::SystemTools::GetFilenameWithoutExtension(GetInputLocation());
 
     auto maskPath = pathWithoutExtension + ".mask.nrrd";
     if (itksys::SystemTools::FileExists(maskPath))
@@ -782,10 +793,36 @@ namespace m2
       if(itksys::SystemTools::FileExists(fileName)){ 
         auto dataVector = mitk::IOUtil::Load(fileName);
         auto externalImage = dynamic_cast<mitk::Image *>(dataVector[0].GetPointer());
-        externalImage->GetGeometry()->SetOrigin(object->GetGeometry()->GetOrigin());
-        externalImage->GetGeometry()->SetSpacing(object->GetGeometry()->GetSpacing());
-        object->SetNormalizationImage(externalImage, type);
-        object->SetNormalizationImageStatus(type, true);
+
+        
+        auto numPixels = std::accumulate(object->GetDimensions(), object->GetDimensions() + externalImage->GetDimension(), 1, std::multiplies<unsigned int>());
+        auto numPixelsExternal = std::accumulate(externalImage->GetDimensions(), externalImage->GetDimensions() + externalImage->GetDimension(), 1, std::multiplies<unsigned int>());
+
+        if(numPixels != numPixelsExternal){
+          MITK_ERROR << "Normalization image size does not match the data size! Skip loading the normalization image: " << fileName;
+          continue;
+        }
+
+    
+        // m2::NormImagePixelType is either double or float 
+        // TODO: add cmake variable to select the pixel type
+        if (externalImage->GetPixelType().GetComponentType() == mitk::MakeScalarPixelType<m2::NormImagePixelType>().GetComponentType() &&
+        externalImage->GetDimension() == 3)
+        {
+          object->SetNormalizationImage(externalImage, type);
+          object->SetNormalizationImageStatus(type, true);
+        }
+        else {
+          mitk::ImageReadAccessor racc(externalImage);
+          mitk::ImagePixelWriteAccessor<m2::NormImagePixelType, 3> wacc(object->GetNormalizationImage(type));
+          if (externalImage->GetPixelType().GetComponentType() == mitk::MakeScalarPixelType<double>().GetComponentType())
+          {
+            std::copy(static_cast<const double *>(racc.GetData()), static_cast<const double *>(racc.GetData()) + numPixelsExternal, wacc.GetData());
+          }else if(externalImage->GetPixelType().GetComponentType() == mitk::MakeScalarPixelType<float>().GetComponentType())
+          {
+            std::copy(static_cast<const float *>(racc.GetData()), static_cast<const float *>(racc.GetData()) + numPixelsExternal, wacc.GetData());
+          }
+        }
       }
     }
 

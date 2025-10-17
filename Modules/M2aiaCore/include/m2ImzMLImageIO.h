@@ -147,8 +147,8 @@ namespace m2
     void LoadAssociatedData(m2::ImzMLSpectrumImage *);
     ImzMLImageIO *IOClone() const override;
 
-
-    std::string RemoveExtensionFromPath(std::string path);
+ 
+    // std::string RemoveExtensionFromPath(std::string path);
 
     m2::IntervalVector::Pointer m_Intervals;
     m2::NumericType m_DataTypeXAxis = m2::NumericType::Float;

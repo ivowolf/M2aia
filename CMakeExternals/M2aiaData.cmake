@@ -14,7 +14,7 @@ if(BUILD_TESTING)
 
   ExternalProject_Add(${proj}
     SOURCE_DIR ${proj}
-    GIT_REPOSITORY https://github.com/jtfc-Ooro/m2aia-data.git 
+    GIT_REPOSITORY https://github.com/m2aia/m2aia-data.git 
     CONFIGURE_COMMAND ""
     BUILD_COMMAND ""
     INSTALL_COMMAND ""
