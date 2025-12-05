@@ -140,7 +140,7 @@ void QmitkM2aiaAppWorkbenchWindowAdvisor::PostWindowOpen()
     }
   }
 
-  const std::vector<QString> viewCategories = {"Spectral Imaging", "Segmentation", "Spectral Imaging (Docker)"};
+  const std::vector<QString> viewCategories = {"Spectral Imaging", "Segmentation", "Spectral Imaging (Docker)", "Registration"};
 
   {
     // auto prefService = berry::WorkbenchPlugin::GetDefault()->GetPreferencesService();
