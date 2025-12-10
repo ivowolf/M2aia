@@ -35,31 +35,39 @@ namespace m2
 
     SeriesDataProvider();
     virtual ~SeriesDataProvider(){}
-    void Initialize(const m2::IntervalVector * data, m2::SpectrumFormat format = m2::SpectrumFormat::None);
+    void SetData(const m2::IntervalVector * data, m2::SpectrumFormat format = m2::SpectrumFormat::None);
     
     /**
      *  @brief Series point data is replaced with valid points from within [x1, x2]. 
      * This method is used if x1 and x2 of the chart view changes.
     */
-    void UpdateBoundaries(double x1 = -1, double x2 = -1);
-
+    void GenerateSeriesDataWithinRange(double x1 = -1, double x2 = -1);
+    
     /**
      *  @brief Degenerate rawdata for LoD data.
     */
-    void Update();
+    void InitializeLoDData();
     
     const std::vector<double> & xs() const {return m_xs;}
     const std::vector<double> & ys() const {return m_ys;}
     
     void SetColor(qreal r, qreal g, qreal b, qreal a);
     void SetColor(QColor c);
+    m2::SpectrumFormat GetFormat() const{return m_Format;}
     
-    QtCharts::QXYSeries * GetSeries() const{return m_Series;}
+    QXYSeries * GetSeries() const{return m_Series;}
+    
+    /**
+     *  @brief Create and set default values for a series (color of data node, style of marker (centroid or profile))
+     *  @param seriesName 
+     *  @param series 
+    */
+    void InitializeSeries();
   private:
     /**
      * Qt Series for providing XY data for the QtChartsView
      */
-    QtCharts::QXYSeries *m_Series;
+    QXYSeries *m_Series;
 
     /**
      * 
@@ -69,7 +77,7 @@ namespace m2
     /**
      * This series is used to add line information to scatter plots
     */
-    QtCharts::QXYSeries *m_SeriesHelper;
+    QXYSeries *m_SeriesHelper;
 
     /**
      * Data degeneration levels.
@@ -97,28 +105,17 @@ namespace m2
     */
     QColor m_DefaultColor;
 
-    /**
-     *  @brief Create and set default values for a series (color of data node, style of marker (centroid or profile))
-     *  @param seriesName 
-     *  @param series 
-    */
-    void InitializeSeries();
-
-
-
-
-    static void SetProfileSpectrumDefaultStyle(QtCharts::QXYSeries *series);
-    static void SetCentroidSpectrumDefaultMarkerStyle(QtCharts::QXYSeries *series);
-    static void SetMarkerSpectrumDefaultMarkerStyle(QtCharts::QXYSeries *series);
+    
+    static void SetProfileSpectrumDefaultStyle(QXYSeries *series);
+    static void SetCentroidSpectrumDefaultMarkerStyle(QXYSeries *series);
+    static void SetMarkerSpectrumDefaultMarkerStyle(QXYSeries *series);
     static PointsVector GenerateLoDData(std::vector<double> & xs, std::vector<double> & ys, unsigned int value);
 
     /**
      *  @brief Convert std::Vector of float for x and y values to a QList of PointF.
     */
     static PointsVector ConvertToQVector(const std::vector<double> & xs, const std::vector<double> & ys);
-
     int FindLoD(double xMin, double xMax) const;
-
     unsigned int m_WantedPointsInView = 500;
 
   };

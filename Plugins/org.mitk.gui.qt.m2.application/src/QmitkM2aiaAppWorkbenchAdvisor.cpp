@@ -18,7 +18,7 @@ See LICENSE.txt or https://www.github.com/jtfcordes/m2aia for details.
 
 #include "internal/QmitkM2aiaApplicationPlugin.h"
 #include <QApplication>
-#include <QDesktopWidget>
+// #include <QDesktopWidget>
 #include <QMainWindow>
 #include <QMenuBar>
 #include <QPoint>
@@ -140,12 +140,12 @@ void QmitkM2aiaAppWorkbenchWindowAdvisor::PostWindowOpen()
     }
   }
 
-  const std::vector<QString> viewCategories = {"Spectrum imaging", "Segmentation", "Spectrum imaging (Docker)"};
+  const std::vector<QString> viewCategories = {"Spectral Imaging", "Segmentation", "Spectral Imaging (Docker)", "Registration"};
 
   {
-    auto prefService = berry::WorkbenchPlugin::GetDefault()->GetPreferencesService();
-    auto stylePrefs = prefService->GetSystemPreferences()->Node(berry::QtPreferences::QT_STYLES_NODE);
-    bool showCategoryNames = stylePrefs->GetBool(berry::QtPreferences::QT_SHOW_TOOLBAR_CATEGORY_NAMES, true);
+    // auto prefService = berry::WorkbenchPlugin::GetDefault()->GetPreferencesService();
+    // auto stylePrefs = prefService->GetSystemPreferences()->Node(berry::QtPreferences::QT_STYLES_NODE);
+    // bool showCategoryNames = stylePrefs->GetBool(berry::QtPreferences::QT_SHOW_TOOLBAR_CATEGORY_NAMES, true);
 
     // Order view descriptors by category
 
@@ -200,7 +200,7 @@ void QmitkM2aiaAppWorkbenchWindowAdvisor::PostWindowOpen()
         toolbar->setObjectName(category + " View Toolbar");
         mainWindow->addToolBar(toolbar);
 
-        if (showCategoryNames && !category.isEmpty())
+        if (!category.isEmpty())
         {
           auto categoryButton = new QToolButton;
           categoryButton->setToolButtonStyle(Qt::ToolButtonTextOnly);
@@ -240,6 +240,12 @@ void QmitkM2aiaAppWorkbenchWindowAdvisor::PostWindowOpen()
   {
     auto m_Preferences = prefService->GetSystemPreferences()->Node("org.mitk.editors.stdmultiwidget");
     m_Preferences->Put("DepartmentLogo", ":/M2aiaApplication/defaultWatermark.png");
+
+    m_Preferences->Put("stdmulti.widget0 corner annotation", "XY");
+    m_Preferences->Put("stdmulti.widget1 corner annotation", "XZ");
+    m_Preferences->Put("stdmulti.widget2 corner annotation", "YZ");
+    m_Preferences->Put("stdmulti.widget3 corner annotation", "3D");
+    
   }
 
 

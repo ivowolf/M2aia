@@ -21,19 +21,23 @@ found in the LICENSE file.
 #include <QAction>
 
 
-class QmitkDataNodeSliceWiseNormalizationAction : public QAction, public QmitkAbstractDataNodeAction
+class QmitkDataNodeCreateLabelSetRegionSpectraAction : public QAction, public QmitkAbstractDataNodeAction
 {
   Q_OBJECT
 
 public:
 
-  QmitkDataNodeSliceWiseNormalizationAction(QWidget* parent, berry::IWorkbenchPartSite::Pointer workbenchPartSite);
-  QmitkDataNodeSliceWiseNormalizationAction(QWidget* parent = nullptr, berry::IWorkbenchPartSite* workbenchPartSite = nullptr);
+QmitkDataNodeCreateLabelSetRegionSpectraAction(QWidget* parent, berry::IWorkbenchPartSite::Pointer workbenchPartSite);
+  QmitkDataNodeCreateLabelSetRegionSpectraAction(QWidget* parent = nullptr, berry::IWorkbenchPartSite* workbenchPartSite = nullptr);
   
+  
+private Q_SLOTS:
+
+  void OnMenuAboutShow();
+
 protected:
 
   void InitializeAction() override;
-  void InitializeWithDataNode(const mitk::DataNode*) override;
 
 };
 

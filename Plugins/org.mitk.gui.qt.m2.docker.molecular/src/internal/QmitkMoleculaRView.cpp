@@ -76,7 +76,7 @@ void QmitkMoleculaRView::EnableWidgets(bool enable)
 
 void QmitkMoleculaRView::OnStartMoleculaR()
 {
-  if (mitk::DockerHelper::CheckDocker())
+  if (mitk::DockerHelper::CanRunDocker())
   {
     for (auto node : m_Controls.imageSelection->GetSelectedNodes())
     {
@@ -165,9 +165,9 @@ void QmitkMoleculaRView::OnStartMoleculaR()
           lsImage->GetLabel(2)->SetColor(c);
           lsImage->GetLabel(2)->SetOpacity(0.1);
 
-          lsImage->GetActiveLabelSet()->UpdateLookupTable(1);
-          lsImage->GetActiveLabelSet()->UpdateLookupTable(2);
-          lsImage->GetActiveLabelSet()->SetActiveLabel(1);
+          lsImage->UpdateLookupTable(1);
+          lsImage->UpdateLookupTable(2);
+          lsImage->SetActiveLabel(1);
           mitk::ProgressBar::GetInstance()->Progress();
         }
         catch (std::exception &e)

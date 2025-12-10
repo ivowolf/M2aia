@@ -1,22 +1,23 @@
 set(SRC_CPP_FILES
   m2UIUtils.cpp
-
-  
+  # Qm2AssociatedFilesDialog.cpp  
 )
 
 set(INTERNAL_CPP_FILES
   org_mitk_gui_qt_m2_common_Activator.cpp
   m2BrowserPreferencesPage.cpp
+  QmitkDataNodeConvertToRGBImageAction.cpp
   QmitkDataNodeConvertPixelTypeAction.cpp
   QmitkDataNodeExportComponentAction.cpp
-  QmitkDataNodeSliceWiseNormalizationAction.cpp
   QmitkDataNodeReimportImageAction.cpp
   QmitkDataNodePlotColorAction.cpp
+  QmitkDataNodeCreateLabelSetRegionSpectraAction.cpp
 )
 
 set(UI_FILES
   src/internal/m2PreferencePage.ui
-  src/m2NameDialogControls.ui
+  src/Qm2NameDialogControls.ui
+  # src/Qm2AssociatedFilesDialog.ui
 )
 
 set(H_FILES
@@ -26,12 +27,14 @@ set(MOC_H_FILES
   src/internal/org_mitk_gui_qt_m2_common_Activator.h
   src/internal/m2BrowserPreferencesPage.h
   src/m2UIUtils.h
-  src/m2NameDialog.h
+  src/Qm2NameDialog.h
+  # src/Qm2AssociatedFilesDialog.h
+  src/internal/QmitkDataNodeConvertToRGBImageAction.h
   src/internal/QmitkDataNodeConvertPixelTypeAction.h
   src/internal/QmitkDataNodeExportComponentAction.h
-  src/internal/QmitkDataNodeSliceWiseNormalizationAction.h
   src/internal/QmitkDataNodePlotColorAction.h
   src/internal/QmitkDataNodeReimportImageAction.h
+  src/internal/QmitkDataNodeCreateLabelSetRegionSpectraAction.h
 )
 
 # list of resource files which can be used by the plug-in

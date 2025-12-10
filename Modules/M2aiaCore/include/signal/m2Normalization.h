@@ -18,10 +18,11 @@ See LICENSE.txt for details.
 #include <M2aiaCoreExports.h>
 #include <algorithm>
 #include <functional>
+#include <cmath>
 #include <mitkExceptionMacro.h>
 #include <numeric>
-#include <signal/m2SignalCommon.h>
 #include <vector>
+#include <signal/m2SignalCommon.h>
 
 namespace m2
 {
@@ -39,6 +40,9 @@ namespace m2
     double TotalIonCurrent(MzItFirst mIt0, MzItLast mItEnd, IntItFirst iIt0) noexcept
     {
       double TIC = 0;
+      if(mIt0 == mItEnd)
+        return 1;
+        
       auto mIt1 = std::next(mIt0);
       auto iIt1 = std::next(iIt0);
       for (; mIt1 != mItEnd; ++mIt0, ++mIt1, ++iIt0, ++iIt1)
@@ -78,6 +82,32 @@ namespace m2
       {
         std::nth_element(first, first + (n / 2), last);
         return *(first + n / 2);
+      }
+    }
+
+
+    template <class ItXFirst, class ItXLast, class ItYFirst, class ItYLast>
+    static inline double GetNormalizationFactor(
+      m2::NormalizationStrategyType strategy, ItXFirst xFirst, ItXLast xLast, ItYFirst yFirst, ItYLast yLast)
+    {
+      using namespace std;
+      switch (strategy)
+      {
+        case m2::NormalizationStrategyType::TIC:
+          return m2::Signal::TotalIonCurrent(xFirst, xLast, yFirst);
+        case m2::NormalizationStrategyType::Sum:
+          return accumulate(yFirst, yLast, double(0.0));
+        case m2::NormalizationStrategyType::Mean:
+          return accumulate(yFirst, yLast, double(0.0)) / double(std::distance(yFirst, yLast));
+        case m2::NormalizationStrategyType::Max:
+          return *max_element(yFirst, yLast);
+        case m2::NormalizationStrategyType::RMS:
+          return m2::Signal::RootMeanSquare(yFirst, yLast);
+        case m2::NormalizationStrategyType::None:
+        case m2::NormalizationStrategyType::Internal:
+        case m2::NormalizationStrategyType::External:
+        default:
+          return 1;
       }
     }
 

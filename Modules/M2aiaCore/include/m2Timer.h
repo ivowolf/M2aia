@@ -17,7 +17,6 @@ See LICENSE.txt for details.
 
 #include <chrono>
 #include <iostream>
-#include <mbilog.h>
 #include <string>
 #include <functional>
 #include <mitkCommon.h>
@@ -32,7 +31,7 @@ namespace m2
     TimePoint start;
     Duration duration;
     std::string m_what;
-    std::function<bool(Duration)> printIf = [](Duration){return false;};
+    std::function<bool(Duration)> printIf = [](Duration){return true;};
     int m_N = 1;
 
     ~Timer()

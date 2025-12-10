@@ -32,11 +32,24 @@ See LICENSE.txt for details.
 
 namespace m2
 {
-  class M2AIACORE_EXPORT FsmSpectrumImage final : public SpectrumImage
+  class M2AIACORE_EXPORT SpectrumContainerImage final : public SpectrumImage
   {
   public:
-    mitkClassMacro(FsmSpectrumImage, SpectrumImage);
+    public:
+    typedef SpectrumContainerImage Self;
+    typedef SpectrumImage Superclass;
+    typedef itk::SmartPointer<Self> Pointer;
+    typedef itk::SmartPointer<const Self> ConstPointer;
+    virtual std::vector<std::string> GetClassHierarchy() const override { return mitk::GetClassHierarchy<Self>(); }
+
+    // Overwrite those methods to make MITK recognize this as default mitk::Image
+    static const char *GetStaticNameOfClass() { return "Image"; }
+    const char *GetNameOfClass() const override { return "Image"; }
+
     itkNewMacro(Self);
+
+    // mitkClassMacro(SpectrumContainerImage, SpectrumImage);
+    // itkNewMacro(Self);
 
     itkSetEnumMacro(ImageGeometryInitialized, bool);
     itkGetEnumMacro(ImageGeometryInitialized, bool);
@@ -56,8 +69,6 @@ namespace m2
       {
         float x, y, z;
       } world;
-
-      m2::NormImagePixelType normalize = -1.0;
     };
 
     using SpectrumVectorType = std::vector<SpectrumData>;
@@ -68,11 +79,11 @@ namespace m2
     void InitializeImageAccess() override;
     void InitializeGeometry() override;
     void InitializeProcessor() override;
-    void InitializeNormalizationImage(m2::NormalizationStrategyType) override {}
-    void GetSpectrum(unsigned int, std::vector<double> &, std::vector<double> &) const override {}
-    void GetIntensities(unsigned int, std::vector<double> &) const override {}
-    void GetSpectrumFloat(unsigned int, std::vector<float> &, std::vector<float> &) const override {}
-    void GetIntensitiesFloat(unsigned int, std::vector<float> &) const override {}
+    void InitializeNormalizationImage(m2::NormalizationStrategyType) override;
+    void GetSpectrum(unsigned int id, std::vector<double> & xs, std::vector<double> & ys) const override {GetYValues(id, ys);GetXValues(id, xs);}
+    void GetIntensities(unsigned int  id, std::vector<double> & ys) const override {GetYValues(id, ys);}
+    void GetSpectrumFloat(unsigned int id, std::vector<float> & xs, std::vector<float> & ys) const override {GetYValues(id, ys);GetXValues(id, xs);}
+    void GetIntensitiesFloat(unsigned int id, std::vector<float> & ys) const override {GetYValues(id, ys);}
 
   private:
     SpectrumVectorType m_Spectra;
@@ -81,50 +92,35 @@ namespace m2
     bool m_ImageAccessInitialized = false;
     bool m_ImageGeometryInitialized = false;
 
-    FsmSpectrumImage();
-    ~FsmSpectrumImage() override;
-    class FsmProcessor;
-    std::unique_ptr<m2::ISpectrumImageSource> m_Processor;
-  };
+    SpectrumContainerImage();
+    ~SpectrumContainerImage() override;
 
-  class FsmSpectrumImage::FsmProcessor : public m2::ISpectrumImageSource
-  {
-  private:
-    friend class FsmSpectrumImage;
-    m2::FsmSpectrumImage *p;
 
-  public:
-    explicit FsmProcessor(m2::FsmSpectrumImage *owner) : p(owner) {}
-    
-    void GetYValues(unsigned int id, std::vector<float> & data) 
+    void GetYValues(unsigned int id, std::vector<float> & data) const
     {
-      data = p->m_Spectra[id].data;
+      data = m_Spectra[id].data;
     }
     
-    void GetYValues(unsigned int id, std::vector<double> & data) 
+    void GetYValues(unsigned int id, std::vector<double> & data) const
     {
-      const auto & d = p->m_Spectra[id].data;
+      const auto & d = m_Spectra[id].data;
       data.resize(d.size());
       std::copy(std::begin(d), std::end(d), std::begin(data));
     }
     
-    void GetXValues(unsigned int /*id*/, std::vector<float> & data) 
+    void GetXValues(unsigned int /*id*/, std::vector<float> & data) const
     {
-      const auto & d = p->GetXAxis();
+      const auto & d = GetXAxis();
       data.resize(d.size());
       std::copy(std::begin(d), std::end(d), std::begin(data));
     }
     
-    void GetXValues(unsigned int /*id*/, std::vector<double> & data) 
+    void GetXValues(unsigned int /*id*/, std::vector<double> & data) const
     {
-      data = p->GetXAxis();
+      data = GetXAxis();
     }
     
-    void GetImagePrivate(double mz, double tol, const mitk::Image *mask, mitk::Image *image) override;
-    void InitializeImageAccess() override;
-    void InitializeGeometry() override;
   };
-
-  
+ 
 
 } // namespace m2

@@ -34,6 +34,7 @@ public:
 
   void SetOpenSlideImageIOHelperObject(m2::OpenSlideImageIOHelperObject *helper);
   void UpdateImageInformation();
+  void UpdatePixmap();
 
   int exec() override
   {
@@ -46,7 +47,12 @@ public:
   std::vector<mitk::Image::Pointer> GetData();
   mitk::Image::Pointer GetPreviewData();
 
+  bool GetMirrorX() { return m_Controls.chkMirrorX->isChecked(); }
+  bool GetMirrorY() { return m_Controls.chkMirrorY->isChecked(); }
+  
+
 private:
+  mitk::Image::Pointer m_LowResImage = nullptr;
   m2::OpenSlideImageIOHelperObject::Pointer m_Helper;
   Ui::OpenSlideImageIOHelperDialog m_Controls;
   int m_SelectedLevel = -1;

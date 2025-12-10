@@ -15,17 +15,17 @@ See LICENSE.txt or https://www.github.com/jtfcordes/m2aia for details.
 ===================================================================*/
 
 #include <itksys/SystemTools.hxx>
-#include <m2CoreCommon.h>
 #include <m2CoreObjectFactory.h>
-#include <m2FSMImageIO.h>
-#include <m2MicroscopyTiffImageIO.h>
-#include <m2ImzMLImageIO.h>
-#include <m2ImzMLSpectrumImage.h>
-#include <m2OpenSlideIO.h>
 #include <usGetModuleContext.h>
 #include <usModule.h>
 #include <usModuleActivator.h>
 #include <usModuleContext.h>
+
+
+#include <m2FSMImageIO.h>
+#include <m2MicroscopyTiffImageIO.h>
+#include <m2ImzMLImageIO.h>
+#include <m2OpenSlideIO.h>
 #include <m2IntervalVectorIO.h>
 namespace m2
 {

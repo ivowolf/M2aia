@@ -4,7 +4,7 @@
     <view id="org.mitk.views.docker.simclr"
           name="SimCLR View"
           class="QmitkSimCLRView"
-          category="Spectrum imaging (Docker)"
+          category="Spectral Imaging (Docker)"
           icon="resources/logo.svg" />
   </extension>
 </plugin>

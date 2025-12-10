@@ -21,7 +21,7 @@ See LICENSE.txt for details.
 #include <mitkIPreferencesService.h>
 #include <mitkIPreferences.h>
 
-void m2::SpectrumImageHelper::AddArguments(mitk::DockerHelper & helper){
+void m2::SpectrumImageHelper::AddArguments(std::vector<std::string> & helperArguments){
   auto* preferencesService = mitk::CoreServices::GetPreferencesService();
 	auto preferences = preferencesService->GetSystemPreferences();
 
@@ -34,14 +34,14 @@ void m2::SpectrumImageHelper::AddArguments(mitk::DockerHelper & helper){
   auto base_val = preferences->Get("m2aia.signal.BaselineCorrectionValue", "50");
   auto tol = preferences->Get("m2aia.signal.Tolerance", "75.0");
   
-  helper.AddApplicationArgument("--normalization", norm);
-  helper.AddApplicationArgument("--intensity_transform", tran);
-  helper.AddApplicationArgument("--range_pooling", pool);
-  helper.AddApplicationArgument("--smoothing", smoo);
-  helper.AddApplicationArgument("--smoothing_value", smoo_val);
-  helper.AddApplicationArgument("--baseline_correction", base);
-  helper.AddApplicationArgument("--baseline_correction_value", base_val);
-  helper.AddApplicationArgument("--tolerance", tol);
+  helperArguments.insert(std::end(helperArguments), {"--normalization", norm});
+  helperArguments.insert(std::end(helperArguments), {"--intensity_transform", tran});
+  helperArguments.insert(std::end(helperArguments), {"--range_pooling", pool});
+  helperArguments.insert(std::end(helperArguments), {"--smoothing", smoo});
+  helperArguments.insert(std::end(helperArguments), {"--smoothing_value", smoo_val});
+  helperArguments.insert(std::end(helperArguments), {"--baseline_correction", base});
+  helperArguments.insert(std::end(helperArguments), {"--baseline_correction_value", base_val});
+  helperArguments.insert(std::end(helperArguments), {"--tolerance", tol});
 
 // python ArgumentParser
 // =========================================================

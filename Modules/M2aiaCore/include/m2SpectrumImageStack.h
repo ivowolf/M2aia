@@ -28,9 +28,20 @@ namespace m2
   class M2AIACORE_EXPORT SpectrumImageStack : public SpectrumImage
   {
   public:
-    mitkClassMacro(SpectrumImageStack, SpectrumImage);
-    mitkNewMacro2Param(Self, unsigned int, double);
-
+  typedef SpectrumImageStack Self;
+  typedef SpectrumImage Superclass;
+  typedef itk::SmartPointer<Self> Pointer;
+  typedef itk::SmartPointer<const Self> ConstPointer;
+  virtual std::vector<std::string> GetClassHierarchy() const override { return mitk::GetClassHierarchy<Self>(); }
+  
+  // Overwrite those methods to make MITK recognize this as default mitk::Image
+  static const char *GetStaticNameOfClass() { return "Image"; }
+  const char *GetNameOfClass() const override { return "Image"; }
+  
+  // itkNewMacro(Self);
+  // mitkClassMacro(SpectrumImageStack, SpectrumImage);
+  mitkNewMacro2Param(Self, unsigned int, double);
+  
   protected:
     
     /// @brief Deleted constructor without parameters
@@ -57,7 +68,6 @@ namespace m2
 
     unsigned int m_StackSize;
     double m_SpacingZ;
-    bool m_UseSliceWiseMaximumNormalization = true;
 
   public:
     // 
@@ -71,9 +81,6 @@ namespace m2
     void InitializeProcessor() override;
     void InitializeImageAccess() override;
     void InitializeNormalizationImage(m2::NormalizationStrategyType /*type*/) override{}
-
-    bool GetUseSliceWiseMaximumNormalization(){return m_UseSliceWiseMaximumNormalization;}
-    void SetUseSliceWiseMaximumNormalization(bool v){m_UseSliceWiseMaximumNormalization = v;}
 
     virtual void GetImage(double mz, double tol, const mitk::Image *mask, mitk::Image *img) const override;
     virtual void GetSpectrumFloat(unsigned int, std::vector<float> &, std::vector<float> &) const override{}

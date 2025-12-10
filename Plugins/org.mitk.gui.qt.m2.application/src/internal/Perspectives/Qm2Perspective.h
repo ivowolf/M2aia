@@ -18,15 +18,15 @@ See LICENSE.txt or https://www.github.com/jtfcordes/m2aia for details.
 
 #include <berryIPerspectiveFactory.h>
 
-class QmitkSpectrumImagingPerspective : public QObject, public berry::IPerspectiveFactory
+class Qm2Perspective : public QObject, public berry::IPerspectiveFactory
 {
   Q_OBJECT
   Q_INTERFACES(berry::IPerspectiveFactory)
 
 public:
 
-  QmitkSpectrumImagingPerspective() {}
-  ~QmitkSpectrumImagingPerspective() {}
+  Qm2Perspective() {}
+  ~Qm2Perspective() {}
 
   void CreateInitialLayout(berry::IPageLayout::Pointer /*layout*/) override;
 };

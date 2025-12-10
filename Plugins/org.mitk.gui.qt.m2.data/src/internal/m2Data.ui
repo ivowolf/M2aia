@@ -47,7 +47,7 @@
       </sizepolicy>
      </property>
      <property name="toolTip">
-      <string/>
+      <string>Processing of spectral input data.</string>
      </property>
      <property name="title">
       <string>Signal processing</string>
@@ -344,26 +344,16 @@
         </item>
        </layout>
       </item>
-      <item>
-       <widget class="QLabel" name="label_7">
-        <property name="text">
-         <string>Changing the smoothing/baseline correction/transformation methods does not necessarily require a reload of the MSI data set. But to reflect the new conditions in the overview spectra, a reload is required.</string>
-        </property>
-        <property name="wordWrap">
-         <bool>true</bool>
-        </property>
-       </widget>
-      </item>
      </layout>
     </widget>
    </item>
    <item>
     <widget class="QGroupBox" name="groupBox">
      <property name="toolTip">
-      <string/>
+      <string>Create (ion) images by accumulation of intensities (pooling) along the spectral axis.</string>
      </property>
      <property name="title">
-      <string>Imaging</string>
+      <string>Image generation</string>
      </property>
      <property name="flat">
       <bool>false</bool>
@@ -441,7 +431,7 @@
            </font>
           </property>
           <property name="toolTip">
-           <string>Center of the range query.</string>
+           <string>Center of the range pooling operation.</string>
           </property>
           <property name="text">
            <string>Position x</string>
@@ -540,7 +530,7 @@
            <number>4</number>
           </property>
           <property name="minimum">
-           <double>0.100000000000000</double>
+           <double>0.000000000000000</double>
           </property>
           <property name="maximum">
            <double>10000000000000.000000000000000</double>
@@ -662,6 +652,148 @@
         </property>
        </widget>
       </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_6">
+        <item>
+         <widget class="QCheckBox" name="CBUseFixedLevel">
+          <property name="text">
+           <string>Fixed Level Window</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QDoubleSpinBox" name="spnBxLevel"/>
+        </item>
+        <item>
+         <widget class="QDoubleSpinBox" name="spnBxWindow"/>
+        </item>
+        <item>
+         <spacer name="horizontalSpacer_2">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="groupBox_3">
+     <property name="toolTip">
+      <string>Spatial processing of generated images</string>
+     </property>
+     <property name="title">
+      <string>Image processing</string>
+     </property>
+     <property name="flat">
+      <bool>false</bool>
+     </property>
+     <property name="checkable">
+      <bool>false</bool>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_6">
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_10">
+        <item>
+         <widget class="QLabel" name="label_15">
+          <property name="minimumSize">
+           <size>
+            <width>150</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>150</width>
+            <height>16777215</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <italic>false</italic>
+           </font>
+          </property>
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Values in a range based query are processed/pooled according to the selected strategy.&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          </property>
+          <property name="text">
+           <string>Normalization</string>
+          </property>
+          <property name="indent">
+           <number>0</number>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QComboBox" name="CBImageNormalization">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="toolTip">
+           <string>Pool values in range, while using this method.</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_18">
+        <item>
+         <widget class="QLabel" name="label_22">
+          <property name="minimumSize">
+           <size>
+            <width>150</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>150</width>
+            <height>16777215</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <italic>false</italic>
+           </font>
+          </property>
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Values in a range based query are processed/pooled according to the selected strategy.&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          </property>
+          <property name="text">
+           <string>Smoothing</string>
+          </property>
+          <property name="indent">
+           <number>0</number>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QComboBox" name="CBImageSmoothing">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="toolTip">
+           <string>Pool values in range, while using this method.</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
      </layout>
     </widget>
    </item>
@@ -720,6 +852,32 @@
        </widget>
       </item>
       <item>
+       <widget class="QCheckBox" name="visibleOnInitialization">
+        <property name="text">
+         <string>Visible on initialization</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+        <property name="tristate">
+         <bool>false</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="showCentroidSpectrum">
+        <property name="text">
+         <string>Show centroid spectrum node</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+        <property name="tristate">
+         <bool>false</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
        <widget class="QCheckBox" name="showMeanSpectrum">
         <property name="text">
          <string>Show mean spectrum node (profile spectra )</string>
@@ -743,39 +901,33 @@
        </widget>
       </item>
       <item>
-       <widget class="QCheckBox" name="showCentroidSpectrum">
-        <property name="text">
-         <string>Show centroid spectrum node</string>
-        </property>
-        <property name="checked">
-         <bool>true</bool>
-        </property>
-        <property name="tristate">
-         <bool>false</bool>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="Line" name="line_5">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QLabel" name="label_5">
-        <property name="text">
-         <string>Interactive Spectra</string>
-        </property>
-       </widget>
-      </item>
-      <item>
        <widget class="QCheckBox" name="showSingleSpectrum">
         <property name="text">
          <string>Show single spectrum node</string>
         </property>
         <property name="tristate">
          <bool>false</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="Line" name="line">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="label_6">
+        <property name="text">
+         <string>Maps</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCommandLinkButton" name="btnCreateShiftMap">
+        <property name="text">
+         <string>m/z shift (selected range)</string>
         </property>
        </widget>
       </item>

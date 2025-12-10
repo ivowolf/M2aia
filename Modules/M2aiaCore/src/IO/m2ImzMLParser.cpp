@@ -87,7 +87,7 @@ void m2::ImzMLParser::ReadImageMetaData(m2::ImzMLSpectrumImage::Pointer data)
   std::unordered_map<std::string, FunctionType> accession_map;
   std::unordered_map<std::string, FunctionType> context_map;
 
-  f.open((data->GetImzMLDataPath()), std::ios_base::binary);
+  f.open(data->GetImzMLDataPath(), std::ios_base::binary);
 
   std::map<std::string, unsigned> precisionDict = {{"32-bit float", sizeof(float)},
                                                    {"64-bit float", sizeof(double)},
@@ -248,6 +248,20 @@ void m2::ImzMLParser::ReadImageMetaData(m2::ImzMLSpectrumImage::Pointer data)
     data->SetPropertyValue<std::string>("m2aia.imzml.format_type", name);
     }; 
 
+
+        
+    accession_map["MS:1000127"] = [&](auto line) { // "continuous"
+      ContextValueToStringProperty(line);
+    data->SetPropertyValue<std::string>("m2aia.imzml.spectrum_type", name);
+    }; 
+
+    
+    accession_map["MS:1000128"] = [&](auto line) { // "processed"
+      ContextValueToStringProperty(line); 
+    data->SetPropertyValue<std::string>("m2aia.imzml.spectrum_type", name);
+    }; 
+
+
     // Attention: we should not specify a default value, for the name here.
     // Describes the length of a pixel in the x dimension. If no pixel size y (IMS:1000047) is explicitly specified,
     // then this also describes the length of a pixel in the y dimension."
@@ -286,10 +300,32 @@ void m2::ImzMLParser::ReadImageMetaData(m2::ImzMLSpectrumImage::Pointer data)
     context_map["instrumentConfiguration"] = [&](const std::string &line) { attributeValue(line, "id", context); };
     context_map["dataProcessing"] = [&](const std::string &line) { attributeValue(line, "id", context); };
 
+    std::string dataProcessingId;
+    std::string processingMethodOrder;
+    std::string processingMethodSoftwareRef;
+    context_map["dataProcessing"] = [&](const std::string &line){
+      attributeValue(line, "id", dataProcessingId);
+      // context = context + ".dataProcessing (" + dataProcessingId + ")";
+      // MITK_INFO << dataProcessingId;
+    };
+
     context_map["processingMethod"] = [&](const std::string &line)
     {
-      attributeValue(line, "order", value);
-      context = context + ".processingMethod (" + value + ")";
+      attributeValue(line, "order", processingMethodOrder);
+      attributeValue(line, "softwareRef", processingMethodSoftwareRef);
+      // MITK_INFO << processingMethodOrder << " " << processingMethodSoftwareRef;
+    };
+
+    context_map["userParam"] = [&](const std::string &line)
+    {
+      std::string description;
+      std::string method_value;
+      attributeValue(line, "name", description);
+      attributeValue(line, "value", method_value);
+      data->SetPropertyValue<std::string>("m2aia.imzml."+dataProcessingId+"." +processingMethodSoftwareRef+"."+processingMethodOrder+".description", description);
+      data->SetPropertyValue<std::string>("m2aia.imzml."+dataProcessingId+"." +processingMethodSoftwareRef+"."+processingMethodOrder+".value", method_value);
+
+      // MITK_INFO << description << " " << method_value;
     };
 
     // default values
@@ -320,6 +356,7 @@ void m2::ImzMLParser::ReadImageMetaData(m2::ImzMLSpectrumImage::Pointer data)
           context_stack.pop_back();
           context.clear();
         }
+
         // Check for empty-element tag. Can be cvParam or userParam (e.g. used by ScilsLab).
         else if (line.rfind("/>") != std::string::npos) // element
         {
@@ -336,9 +373,15 @@ void m2::ImzMLParser::ReadImageMetaData(m2::ImzMLSpectrumImage::Pointer data)
             // }
             // Fallback if context specific accession is not found.
             auto status = evaluateAccession(line, accession, accession_map);
+            accession.clear();
             if (!status) // Default: name + value is added to IMS data property list
               ContextValueToStringProperty(line);
+          }else{
+            GetElementName(line, tag);
+            context_stack.push_back(tag);
+            EvaluateContext(line, tag, context_map);
           }
+  
         }
 
         else // open context
@@ -465,15 +508,15 @@ void m2::ImzMLParser::ReadImageSpectrumMetaData(m2::ImzMLSpectrumImage::Pointer 
 
     // https://github.com/m2aia/imzML/blob/master/imagingMS.obo#L196
     accession_map["IMS:1000050"] = [&](auto line)
-    { spectra[spectrumIndexReference].index.SetElement(0, std::stoul(attributeValue(line, "value", value)) - 1); };
+    { spectra[spectrumIndexReference].index.SetElement(0, std::stol(attributeValue(line, "value", value)) - 1); };
 
     // https://github.com/m2aia/imzML/blob/master/imagingMS.obo#L204
     accession_map["IMS:1000051"] = [&](auto line)
-    { spectra[spectrumIndexReference].index.SetElement(1, std::stoul(attributeValue(line, "value", value)) - 1); };
+    { spectra[spectrumIndexReference].index.SetElement(1, std::stol(attributeValue(line, "value", value)) - 1); };
 
     // https://github.com/m2aia/imzML/blob/master/imagingMS.obo#L213
     accession_map["IMS:1000052"] = [&](auto line)
-    { spectra[spectrumIndexReference].index.SetElement(2, std::stoul(attributeValue(line, "value", value)) - 1); };
+    { spectra[spectrumIndexReference].index.SetElement(2, std::stol(attributeValue(line, "value", value)) - 1); };
 
     // Foreign user tags
     accession_map["3DPositionX"] = [&](auto line)
@@ -673,6 +716,15 @@ void m2::ImzMLParser::ReadImageSpectrumMetaData(m2::ImzMLSpectrumImage::Pointer 
         MITK_WARN << "The max count of pixels y was adjusted from " << imzMLSizeY << " to " << newSizeY << "";
       if (imzMLSizeX != newSizeX)
         MITK_WARN << "The max count of pixels z was adjusted from " << imzMLSizeZ << " to " << newSizeZ << "";
+      
+      // std::ofstream ofs("/home/jtfc/m2aia_imzml_correction.txt");
+      // for(auto s : data->GetSpectra()){
+      //   ofs << s.index[0] << " " << s.index[1] << " " << s.index[2] << std::endl;
+      //   ofs << s.intLength << " " << s.intOffset << " " << s.mzLength << " " << s.mzOffset << std::endl;
+      //   ofs << s.world.x << " " << s.world.y << " " << s.world.z << std::endl;
+      //   ofs << "----------------" << std::endl;
+      //   ofs.flush();
+      // }
     }
   }
 }

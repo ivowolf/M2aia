@@ -4,7 +4,7 @@
     <view id="org.mitk.views.docker.umap"
           name="UMAP View"
           class="QmitkUMAPView"
-          category="Spectrum imaging (Docker)"
+          category="Spectral Imaging (Docker)"
           icon="resources/logo.svg" />
   </extension>
 </plugin>

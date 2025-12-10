@@ -43,26 +43,12 @@ public:
     m2BrowserPreferencesPage();
     ~m2BrowserPreferencesPage() override;
 
-private:
-	QProcess *m_ElastixProcess;
-	std::string m_ElastixPath;
-
-	QProcess *m_TransformixProcess;
-	std::string m_TransformixPath;
-
 public slots:
-	void OnElastixButtonClicked();
-	void OnElastixProcessError(QProcess::ProcessError error);
-	void OnElastixProcessFinished(int exitCode, QProcess::ExitStatus exitStatus);
-
-	void OnTransformixButtonClicked();
-	void OnTransformixProcessError(QProcess::ProcessError error);
-	void OnTransformixProcessFinished(int exitCode, QProcess::ExitStatus exitStatus);
-
 	void OnBinsSpinBoxValueChanged(int);
 
 	void OnUseMinIntensity(bool v);
 	void OnUseMaxIntensity(bool v);
+	void OnUseSamplingPoints(bool v);
 	void OnUseMinimalImagingArea(bool v);
 
 	void CreateQtControl(QWidget* parent) override;

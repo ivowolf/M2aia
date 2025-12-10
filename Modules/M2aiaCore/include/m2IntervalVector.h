@@ -17,12 +17,14 @@ See LICENSE.txt for details.
 #include <m2CoreCommon.h>
 #include <mitkBaseData.h>
 #include <mitkDataNode.h>
+#include <mitkProperties.h>
 
 namespace m2
 {
 
   struct Accumulator
   {
+
     double mean() const { return m_sum / double(m_count); }
     double sum() const { return m_sum; }
     double min() const { return m_min; }
@@ -31,16 +33,25 @@ namespace m2
 
     double m_sum = 0;
     double m_min = std::numeric_limits<double>::max();
-    double m_max = std::numeric_limits<double>::min();
+    double m_max = 0;
     unsigned int m_count = 0;
 
-    void operator()(double v)
+    void add(double v)
     {
       m_sum += v;
       m_min = std::min(m_min, v);
       m_max = std::max(m_max, v);
       ++m_count;
     }
+
+    // Accumulator &operator+=(const double &s)
+    // {
+    //   m_sum += rhs.m_sum;
+    //   m_count += rhs.m_count;
+    //   m_min = std::min(m_min, rhs.m_min);
+    //   m_max = std::max(m_max, rhs.m_max);
+    //   return *this;
+    // }
 
     Accumulator &operator+=(const Accumulator &rhs)
     {
@@ -51,15 +62,15 @@ namespace m2
       return *this;
     }
 
-    Accumulator operator+(const Accumulator &rhs)
-    {
-      Accumulator res;
-      res.m_sum = rhs.m_sum + m_sum;
-      res.m_count = rhs.m_sum + m_count;
-      res.m_min = std::min(m_min, rhs.m_min);
-      res.m_max = std::max(m_max, rhs.m_max);
-      return res;
-    }
+    // Accumulator operator+(const Accumulator &rhs)
+    // {
+    //   Accumulator res;
+    //   res.m_sum +=  m_sum;
+    //   res.m_count = rhs.m_count + m_count;
+    //   res.m_min = std::min(m_min, rhs.m_min);
+    //   res.m_max = std::max(m_max, rhs.m_max);
+    //   return res;
+    // }
   };
 
   struct Interval
@@ -70,9 +81,8 @@ namespace m2
     std::string description;
 
     /**
-     * This tag can be used to indicate it's source. Can be used during processing and is not guranteed to be unique.
+     * This tag can be used to indicate it's source. Can be used during processing and is not guaranteed to be unique.
      * Default:0
-     *
      */
     unsigned int sourceId = 0;
 
@@ -81,19 +91,25 @@ namespace m2
     Interval(double x, double y, unsigned int source = 0) : Interval(source)
     {
       // this->index(index);
-      this->x(x);
-      this->y(y);
+      this->x.add(x);
+      this->y.add(y);
     }
 
     Interval &operator+=(const Interval &rhs)
     {
       x += rhs.x;
       y += rhs.y;
-      // index += rhs.index;
       return *this;
     }
     friend bool operator<(const Interval &lhs, const Interval &rhs) { return lhs.x.mean() < rhs.x.mean(); }
     // friend bool operator==(const Interval &lhs, const Interval &rhs) { return lhs.x.mean() == rhs.x.mean(); }
+
+    std::string ToString() const
+    {
+      std::stringstream ss;
+      ss << "m/z " << x.mean() << " +/- " << y.mean() << " Da";
+      return ss.str();
+    }
   };
   
   
@@ -104,8 +120,8 @@ namespace m2
    * - spectrum.marker.size: size of markers in spectrum view's selected area
    * 
    * BaseData properties:
-   * - spectrum.pixel.count: number of reference pixels for this spectrum container
-   * - spectrum.xaxis.count: number of values on the x axis (i.e. number of m/z values or centroids)
+   * - m2aia.image.pixel.count: number of reference pixels for this spectrum container
+   * - m2aia.helper.spectrum.xaxis.count: number of values on the x axis (i.e. number of m/z values or centroids)
    */
   class M2AIACORE_EXPORT IntervalVector : public mitk::BaseData
   {
@@ -169,6 +185,20 @@ namespace m2
 
 
     /**
+     * @brief Set the number of source pixels for this spectrum container.
+    */
+    void SetNumberOfSourcePixels(unsigned int n)
+    {
+      m_NumberOfSourcePixels = n;
+      this->SetProperty("m2aia.image.pixel.count", mitk::IntProperty::New(n));
+    }
+
+    /**
+     * @brief Get the number of source pixels for this spectrum container.
+    */
+    unsigned int GetNumberOfSourcePixels() const { return m_NumberOfSourcePixels; }
+
+    /**
      * @brief Check whether object contains data (at
      * least at one point in time), e.g., a set of points
      * may be empty
@@ -185,6 +215,8 @@ namespace m2
     std::vector<Interval> m_Data;
     std::string m_Info = "Not Set!";
     SpectrumFormat m_Type = SpectrumFormat::Centroid;
+
+    unsigned int m_NumberOfSourcePixels = 0;
   };
 
 } // namespace m2

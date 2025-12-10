@@ -1,139 +1,164 @@
+/*===================================================================
 
-//#include <Eigen/SVD>
-#include <algorithm> // std::sort, std::stable_sort
-#include <itkDataObject.h>
-#include <itkImageRegionIterator.h>
-#include <itkIndex.h>
-#include <itkVariableLengthVector.h>
-#include <itkVectorImage.h>
-#include <m2CoreCommon.h>
+MSI applications for interactive analysis in MITK (M2aia)
+
+Copyright (c) Jonas Cordes
+
+All rights reserved.
+
+This software is distributed WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR
+A PARTICULAR PURPOSE.
+
+See LICENSE.txt for details.
+
+===================================================================*/
+
 #include <m2PcaImageFilter.h>
 #include <m2Timer.h>
-#include <mitkIOUtil.h>
+#include <m2CoreCommon.h>
+
 #include <mitkImage.h>
-#include <mitkImageAccessByItk.h>
 #include <mitkImageCast.h>
 #include <mitkImagePixelReadAccessor.h>
-#include <numeric> // std::iota
-#include <vnl/vnl_matrix.h>
-#include <boost/progress.hpp>
 
-void m2::PcaImageFilter::initMatrix()
+#include <itkVectorImage.h>
+#include <itkImageRegionIterator.h>
+
+#include <algorithm>
+#include <numeric>
+
+namespace m2 {
+
+void PcaImageFilter::initMatrix()
 {
-  // this->GetValidIndices();
+  // Get input images
   auto input = this->GetIndexedInputs();
-  auto mitkImage = dynamic_cast<mitk::Image *>(input.front().GetPointer());
-  size_t pixels = 1;
-  for (unsigned int i = 0; i < mitkImage->GetDimension(); ++i)
-    pixels *= mitkImage->GetDimensions()[i];
-  const unsigned long numberOfrow = pixels;
-  const unsigned long numberOfcolumn = this->GetIndexedInputs().size();
-
-  this->m_DataMatrix.resize(numberOfrow, numberOfcolumn);
-  unsigned int c = 0;
-  boost::progress_display p(numberOfcolumn);
-  
-  /*Fill matrix with image values one column includes values of one image*/
-  for (auto it = input.begin(); it != input.end(); ++it, ++c)
-  {
-    mitkImage = dynamic_cast<mitk::Image *>(it->GetPointer());
-    mitk::ImagePixelReadAccessor<m2::DisplayImagePixelType, 3> access(mitkImage);
-    std::copy(access.GetData(), access.GetData() + pixels, m_DataMatrix.col(c).data());
-    ++p;
+  if (input.empty()) {
+    MITK_ERROR << "No input images provided to PCA filter";
+    return;
   }
-
-  // auto maxCoeffs = m_DataMatrix.colwise().maxCoeff();
-  // auto minCoeffs = m_DataMatrix.colwise().minCoeff();
-  // auto scalingFactors = maxCoeffs - minCoeffs;
-  // m_DataMatrix = ((m_DataMatrix.rowwise() - minCoeffs).array().rowwise() / scalingFactors.array()).matrix();
-
-  // auto means = m_DataMatrix.colwise().mean();
-  // m_DataMatrix = m_DataMatrix.rowwise() - means;
-  // m_DataMatrix /= (m_DataMatrix.rows() - 1);
-
-  // for (unsigned int c = 0; c < m_DataMatrix.cols(); ++c)
-  // m_DataMatrix.col(c) = m_DataMatrix.col(c) / stdDevs[c];
+  
+  // Calculate dimensions from first input image
+  auto mitkImage = dynamic_cast<mitk::Image*>(input.front().GetPointer());
+  if (!mitkImage) {
+    MITK_ERROR << "Invalid input image";
+    return;
+  }
+  
+  // Calculate total number of pixels
+  size_t totalPixels = 1;
+  for (unsigned int i = 0; i < mitkImage->GetDimension(); ++i) {
+    totalPixels *= mitkImage->GetDimensions()[i];
+  }
+  
+  // Set up data matrix dimensions (pixels × images)
+  const unsigned long numRows = totalPixels;
+  const unsigned long numColumns = input.size();
+  
+  MITK_INFO << "Creating data matrix with dimensions " << numRows << " x " << numColumns;
+  m_DataMatrix.resize(numRows, numColumns);
+  
+  // Fill data matrix - each column contains one flattened image
+  unsigned int columnIndex = 0;
+  for (auto it = input.begin(); it != input.end(); ++it, ++columnIndex) {
+    mitkImage = dynamic_cast<mitk::Image*>(it->GetPointer());
+    if (!mitkImage) {
+      MITK_WARN << "Skipping invalid input image at index " << columnIndex;
+      continue;
+    }
+    
+    try {
+      mitk::ImagePixelReadAccessor<m2::DisplayImagePixelType, 3> accessor(mitkImage);
+      std::copy(accessor.GetData(), accessor.GetData() + totalPixels, m_DataMatrix.col(columnIndex).data());
+    }
+    catch (mitk::Exception& e) {
+      MITK_ERROR << "Error accessing pixel data for image " << columnIndex << ": " << e.what();
+    }
+  }
+  
+  MITK_INFO << "Data matrix initialized with " << m_DataMatrix.rows() << " rows and " 
+            << m_DataMatrix.cols() << " columns";
 }
 
-Eigen::MatrixXf m2::PcaImageFilter::GetEigenImageMatrix(){
+Eigen::MatrixXf PcaImageFilter::GetEigenImageMatrix()
+{
   return m_EigenImageMatrix;
 }
 
-Eigen::VectorXf m2::PcaImageFilter::GetMeanImage(){
+Eigen::VectorXf PcaImageFilter::GetMeanImage()
+{
   return m_MeanImage;
 }
 
-void m2::PcaImageFilter::GenerateData()
+Eigen::MatrixXf PcaImageFilter::GetLoadings()
 {
-  auto timer = m2::Timer("PCA - Generate data ...");
+  return m_Loadings;
+}
+
+void PcaImageFilter::GenerateData()
+{
+  auto timer = m2::Timer("PCA - GenerateData");
+  
+  // Initialize data matrix from input images
   this->initMatrix();
-
-  // eigenionimages
+  
+  if (m_DataMatrix.rows() == 0 || m_DataMatrix.cols() == 0) {
+    MITK_ERROR << "Data matrix is empty, cannot perform PCA";
+    return;
+  }
+  
+  // Step 1: Center the data by subtracting the mean
   m_MeanImage = m_DataMatrix.rowwise().mean();
-  Eigen::MatrixXf eigenionData = m_DataMatrix.colwise() - m_MeanImage;
-
-  Eigen::JacobiSVD<Eigen::MatrixXf> svd(eigenionData, Eigen::ComputeThinU | Eigen::ComputeThinV);
-  MITK_INFO << "S size: " << svd.singularValues().rows() << " " << svd.singularValues().cols();
-  MITK_INFO << "U size: " << svd.matrixU().rows() << " " << svd.matrixU().cols();
-  MITK_INFO << "V size: " << svd.matrixV().rows() << " " << svd.matrixV().cols();
-  MITK_INFO << "m_DataMatrix: " << m_DataMatrix.rows() << " " << m_DataMatrix.cols();
-
-  const Eigen::MatrixXf &U = svd.matrixU();
-  m_EigenImageMatrix = U;
-
-  auto eigenIonVectorImage = initializeItkVectorImage(m_NumberOfComponents);
-  m2::DisplayImagePixelType *data;
-  data = eigenIonVectorImage->GetBufferPointer();
-
-  for (unsigned int c = 0; c < m_NumberOfComponents; ++c)
-  {
-    const auto &col = U.col(c);
-    for (unsigned int p = 0; p < U.rows(); ++p)
-    {
-      data[p * m_NumberOfComponents + c] = col(p);
+  Eigen::MatrixXf centeredData = m_DataMatrix.colwise() - m_MeanImage;
+  
+  // Step 2: Perform SVD (Singular Value Decomposition)
+  MITK_INFO << "Performing SVD on matrix with dimensions " << centeredData.rows() << " x " << centeredData.cols();
+  Eigen::JacobiSVD<Eigen::MatrixXf> svd(centeredData, Eigen::ComputeThinU | Eigen::ComputeThinV);
+  
+  // Store principal components (U matrix from SVD)
+  m_EigenImageMatrix = svd.matrixU();
+  
+  // Calculate and store loadings (V matrix scaled by singular values)
+  m_Loadings = svd.matrixV() * svd.singularValues().asDiagonal();
+  
+  MITK_INFO << "SVD complete: found " << svd.singularValues().size() << " components";
+  MITK_INFO << "First few singular values: " 
+            << svd.singularValues().head(std::min(5, (int)svd.singularValues().size())).transpose();
+  
+  // Limit to requested number of components
+  unsigned int numComponentsToOutput = std::min(m_NumberOfComponents, 
+                                              (unsigned int)m_EigenImageMatrix.cols());
+  
+  if (numComponentsToOutput == 0) {
+    MITK_WARN << "Number of components to output is zero";
+    return;
+  }
+  
+  // Create output vector image containing the principal components
+  auto eigenIonVectorImage = initializeItkVectorImage(numComponentsToOutput);
+  m2::DisplayImagePixelType* outputData = eigenIonVectorImage->GetBufferPointer();
+  
+  // Fill the output image with principal components
+  for (unsigned int c = 0; c < numComponentsToOutput; ++c) {
+    const auto& component = m_EigenImageMatrix.col(c);
+    for (unsigned int p = 0; p < m_EigenImageMatrix.rows(); ++p) {
+      outputData[p * numComponentsToOutput + c] = component(p);
     }
   }
-
-  // feature pca
-  // Eigen::MatrixXf pcaData = m_DataMatrix.rowwise() - m_DataMatrix.colwise().mean();
-  // Eigen::MatrixXf cov = (pcaData.transpose() * pcaData) / (pcaData.rows() - 1);
-
-  // Eigen::EigenSolver<Eigen::MatrixXf> solver(cov);
-  // Eigen::VectorXf values = solver.eigenvalues().real();
-  // Eigen::MatrixXf vectors = solver.eigenvectors().real();
-  // Eigen::MatrixXf vectorsSorted(vectors);
-  // // fill indices
-  // std::vector<unsigned int> indices(values.size());
-  // std::iota(indices.begin(), indices.end(), 0);
-  // // sort indices according to
-  // std::stable_sort(indices.begin(), indices.end(), [&values](auto i1, auto i2) { return values[i1] > values[i2]; });
-
-  // unsigned int i = 0;
-  // for (auto u : indices)
-  //   vectorsSorted.col(i++) = vectors.col(u);
-
-  // Eigen::MatrixXf pc = pcaData * vectorsSorted;
-  // auto pcVectorImage = initializeItkVectorImage(m_NumberOfComponents);
-  // data = pcVectorImage->GetBufferPointer();
-
-  // for (unsigned int c = 0; c < m_NumberOfComponents; ++c)
-  // {
-  //   const auto &col = pc.col(c);
-  //   for (unsigned int p = 0; p < pc.rows(); ++p)
-  //   {
-  //     data[p * m_NumberOfComponents + c] = col(p);
-  //   }
-  // }
   
-
+  // Convert to MITK image and set geometry from input
   mitk::Image::Pointer eigenIonImage = this->GetOutput(0);
   mitk::CastToMitkImage(eigenIonVectorImage, eigenIonImage);
-  eigenIonImage->SetSpacing(this->GetInput()->GetGeometry()->GetSpacing());
-  eigenIonImage->SetOrigin(this->GetInput()->GetGeometry()->GetOrigin());
-
-  // mitk::Image::Pointer pcImage = this->GetOutput(1);
-  // mitk::CastToMitkImage(pcVectorImage, pcImage);
-  // pcImage->SetSpacing(this->GetInput()->GetGeometry()->GetSpacing());
-  // pcImage->SetOrigin(this->GetInput()->GetGeometry()->GetOrigin());
- 
+  
+  // Copy geometry from input image
+  if (this->GetInput()) {
+    eigenIonImage->SetSpacing(this->GetInput()->GetGeometry()->GetSpacing());
+    eigenIonImage->SetOrigin(this->GetInput()->GetGeometry()->GetOrigin());
+    eigenIonImage->GetGeometry()->SetIndexToWorldTransform(this->GetInput()->GetGeometry()->GetIndexToWorldTransform());
+  }
+  
+  MITK_INFO << "PCA completed successfully with " << numComponentsToOutput << " components";
 }
+
+} // namespace m2

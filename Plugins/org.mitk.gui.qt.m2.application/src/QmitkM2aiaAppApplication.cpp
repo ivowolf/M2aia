@@ -26,6 +26,8 @@ US_INITIALIZE_MODULE
 
 QVariant QmitkM2aiaAppApplication::Start(berry::IApplicationContext*)
 {
+  // Set locale to English (United States)
+  QLocale::setDefault(QLocale(QLocale::English, QLocale::UnitedStates));
   berry::Display* display = berry::PlatformUI::CreateDisplay();
 
   int code = berry::PlatformUI::CreateAndRunWorkbench(display, new QmitkM2aiaAppWorkbenchAdvisor());

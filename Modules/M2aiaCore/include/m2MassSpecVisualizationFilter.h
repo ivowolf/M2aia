@@ -35,7 +35,7 @@ namespace m2
     void GetValidIndices();
     std::vector<itk::Index<3>> m_ValidIndices = {};
 
-    static mitk::Image::Pointer ConvertMitkVectorImageToRGB(mitk::Image::Pointer vImage)
+    static inline mitk::Image::Pointer ConvertMitkVectorImageToRGB(mitk::Image::Pointer vImage)
     {
       mitk::Image::Pointer result;
       itk::VectorImage<unsigned char, 3>::Pointer vectorImage;
@@ -46,7 +46,7 @@ namespace m2
 
     /*This function casts a itk vector Image with vector length of 3, to a RGB itk Image. The buffer of the
       vector image is copied to the RGB image.*/
-    static itk::Image<itk::RGBPixel<unsigned char>, 3>::Pointer ConvertVectorImageToRGB(
+    static inline itk::Image<itk::RGBPixel<unsigned char>, 3>::Pointer ConvertVectorImageToRGB(
       itk::VectorImage<unsigned char, 3>::Pointer vectorImage)
     {
       itk::Image<RGBPixel, 3>::Pointer rgbImage = itk::Image<RGBPixel, 3>::New();

@@ -52,18 +52,24 @@ namespace m2
         return;
     }
 
-    std::array<std::string, 3> position;
-    if(auto prop = input->GetProperty("m2aia.spectrum.position.x"))
-      position[0] = prop->GetValueAsString();
-    if(auto prop = input->GetProperty("m2aia.spectrum.position.y"))
-      position[1] = prop->GetValueAsString();
-    if(auto prop = input->GetProperty("m2aia.spectrum.position.z"))
-      position[2] = prop->GetValueAsString();
+    // std::array<std::string, 3> position;
+    // if(auto prop = input->GetProperty("m2aia.spectrum.position.x"))
+    //   position[0] = prop->GetValueAsString();
+    // if(auto prop = input->GetProperty("m2aia.spectrum.position.y"))
+    //   position[1] = prop->GetValueAsString();
+    // if(auto prop = input->GetProperty("m2aia.spectrum.position.z"))
+    //   position[2] = prop->GetValueAsString();
 
     // file << "[spectrum position] " << boost::algorithm::join(position, " ") << "\n"; 
     file << "center,max,min,mean\n";
-    for(const m2::Interval & i: input->GetIntervals()){
-      file << i.x.mean() << "," << i.y.max() << "," << i.y.min() << "," << i.y.mean() << "\n";
+    const auto intervals = input->GetIntervals();
+    for(size_t i = 0 ; i < intervals.size(); ++i){
+      if(i==0)
+        file << intervals[i].x.max()+0.005 << "," << intervals[i].y.max() << "," << intervals[i].y.min() << "," << intervals[i].y.mean() << "\n";
+      else if(i == intervals.size() -1)
+        file << intervals[i].x.min()-0.005 << "," << intervals[i].y.max() << "," << intervals[i].y.min() << "," << intervals[i].y.mean() << "\n";
+      else
+        file << intervals[i].x.mean() << "," << intervals[i].y.max() << "," << intervals[i].y.min() << "," << intervals[i].y.mean() << "\n";
     }
 
     file.close();

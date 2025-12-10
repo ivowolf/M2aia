@@ -1,6 +1,6 @@
 set(MITK_CONFIG_PACKAGES
   MatchPoint
-  Qt5
+  Qt6
   BLUEBERRY
 )
 
@@ -13,13 +13,14 @@ set(MITK_CONFIG_PLUGINS
   org.mitk.gui.qt.segmentation
   org.mitk.gui.qt.volumevisualization
   org.mitk.gui.qt.pointsetinteraction
-  org.mitk.gui.qt.imagenavigator
+  org.mitk.gui.qt.overlaymanager
+  # org.mitk.gui.qt.imagenavigator
   org.mitk.gui.qt.moviemaker
   org.mitk.gui.qt.properties
   org.mitk.gui.qt.viewnavigator
   org.mitk.gui.qt.renderwindowmanager
   org.mitk.gui.qt.multilabelsegmentation
-  org.mitk.gui.qt.geometrytools
+  # org.mitk.gui.qt.geometrytools
   org.mitk.gui.qt.m2.application
   org.mitk.gui.qt.m2.common
   org.mitk.gui.qt.m2.data
@@ -27,7 +28,7 @@ set(MITK_CONFIG_PLUGINS
   org.mitk.gui.qt.m2.spectrum
   org.mitk.gui.qt.m2.peakpicking
   org.mitk.gui.qt.m2.ImzMLExport
-  org.mitk.gui.qt.m2.Reconstruction3D
+  org.mitk.gui.qt.m2.reconstruction3D
   org.mitk.gui.qt.m2.Position
   org.mitk.gui.qt.m2.registration
   org.mitk.gui.qt.matchpoint.evaluator
@@ -42,3 +43,5 @@ find_package(Doxygen REQUIRED)
 
 # Ensure that the in-application help can be build
 set(BLUEBERRY_QT_HELP_REQUIRED ON CACHE BOOL "Required Qt help documentation in plug-ins" FORCE)
+
+

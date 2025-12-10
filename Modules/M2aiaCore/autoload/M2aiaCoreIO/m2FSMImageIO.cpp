@@ -36,7 +36,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <itkOpenSlideImageIO.h>
 #include <itksys/SystemTools.hxx>
 #include <m2FSMImageIO.h>
-#include <m2FsmSpectrumImage.h>
+#include <m2SpectrumContainerImage.h>
 #include <map>
 #include <mitkIOUtil.h>
 #include <mitkImageCast.h>
@@ -52,13 +52,7 @@ namespace m2
 
   mitk::IFileIO::ConfidenceLevel FSMImageIO::GetWriterConfidenceLevel() const
   {
-    if (AbstractFileIO::GetWriterConfidenceLevel() == Unsupported)
-      return Unsupported;
-    const auto *input = static_cast<const m2::ImzMLSpectrumImage *>(this->GetInput());
-    if (input)
-      return Supported;
-    else
-      return Unsupported;
+    return Unsupported;
   }
 
   void FSMImageIO::Write() { ValidateOutputLocation(); }
@@ -251,7 +245,7 @@ namespace m2
       }
     }
 
-    auto fsmImage = m2::FsmSpectrumImage::New();
+    auto fsmImage = m2::SpectrumContainerImage::New();
     fsmImage->SetPropertyValue<unsigned>("dim_x", dimensions[0]); // n_x
     fsmImage->SetPropertyValue<unsigned>("dim_y", dimensions[1]); // n_z
     fsmImage->SetPropertyValue<unsigned>("dim_z", 1);
@@ -296,7 +290,7 @@ namespace m2
     unsigned long i = 0;
     while (!it.IsAtEnd())
     {
-      m2::FsmSpectrumImage::SpectrumData spectrum;
+      m2::SpectrumContainerImage::SpectrumData spectrum;
       spectrum.data.resize(spectraDataVectors.front().size(), 0);
 
       if (inverse)

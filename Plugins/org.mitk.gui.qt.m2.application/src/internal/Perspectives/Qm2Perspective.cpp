@@ -14,10 +14,10 @@ See LICENSE.txt or https://www.github.com/jtfcordes/m2aia for details.
 
 ===================================================================*/
 
-#include "QmitkSpectrumImagingPerspective.h"
+#include "Qm2Perspective.h"
 
 
-void QmitkSpectrumImagingPerspective::CreateInitialLayout(berry::IPageLayout::Pointer layout)
+void Qm2Perspective::CreateInitialLayout(berry::IPageLayout::Pointer layout)
 {
   /////////////////////////////////////////////////////
   // all di-app perspectives should have the following:

@@ -17,8 +17,6 @@ See LICENSE.txt for details.
 #include <M2aiaCoreExports.h>
 #include <itkMetaDataObject.h>
 
-#include <mitkDockerHelper.h>
-
 #include <m2CoreCommon.h>
 #include <m2SpectrumImage.h>
 #include <m2IntervalVector.h>
@@ -34,7 +32,7 @@ namespace m2
      * @brief Add default arguments for a SpectrumImage to a docker 
      * floats.
     */
-    static void AddArguments(mitk::DockerHelper & helper);
+    static void AddArguments(std::vector<std::string> & helperArguments);
   
     /**
      * @brief Get the Intensity Data representing a matrix of shape [#intervals, #pixels] as a contiguous array of

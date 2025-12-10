@@ -51,12 +51,10 @@ namespace m2
   std::vector<mitk::BaseData::Pointer> OpenSlideIO::DoRead()
   {
     auto ioHelper = m2::OpenSlideImageIOHelperObject::New();
-
     auto osIO = ioHelper->GetOpenSlideIO();
     osIO->SetFileName(this->GetInputLocation());
     osIO->ReadImageInformation();
-    osIO->SetLevel(osIO->GetLevelCount() - 1);
-	ioHelper->ParesOpenSlideLevelsToMap();
+	  ioHelper->ParesOpenSlideLevelsToMap();
 
     return {ioHelper.GetPointer()};
   }

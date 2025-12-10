@@ -26,6 +26,7 @@ See LICENSE.txt for details.
 #include <mitkPointOperation.h>
 #include <mitkRenderingManager.h>
 #include <m2IntervalVector.h>
+#include <m2CoreCommon.h>
 
 m2::SpectrumImageDataInteractor::SpectrumImageDataInteractor() {}
 m2::SpectrumImageDataInteractor::~SpectrumImageDataInteractor() {}
@@ -98,8 +99,7 @@ bool m2::SpectrumImageDataInteractor::FilterEvents(mitk::InteractionEvent *inter
                          inserter,
                          [](const auto &x, const auto &y) { return m2::Interval(x, y); });
 
-          singleSpectrumNode->Modified();
-          singleSpectrum->Modified();
+          singleSpectrumNode->InvokeEvent(m2::IntervalVectorModified());
         }
       }
       
@@ -112,15 +112,7 @@ bool m2::SpectrumImageDataInteractor::FilterEvents(mitk::InteractionEvent *inter
 
 mitk::DataNode *m2::SpectrumImageDataInteractor::FindSingleSpectrumDataNode(mitk::DataNode * node)
 {
-  auto derivations = this->GetDataStorage()->GetDerivations(node);
-  for (auto node : *derivations)
-  {
-    if (node->GetName().find("SingleSpectrum") != std::string::npos)
-    {
-      return node;
-    }
-  }
-  return nullptr;
+  return this->GetDataStorage()->GetNamedDerivedNode((node->GetName()+".single_spectrum").c_str(), node);
 }
 
 void m2::SpectrumImageDataInteractor::SelectSingleSpectrumByPoint(mitk::StateMachineAction *, mitk::InteractionEvent *)

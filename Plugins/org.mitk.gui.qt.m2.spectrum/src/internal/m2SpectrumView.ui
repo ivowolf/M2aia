@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>imsSpectrumControls</class>
- <widget class="QWidget" name="imsSpectrumControls">
+ <class>m2SpectrumViewControls</class>
+ <widget class="QWidget" name="m2SpectrumViewControls">
   <property name="enabled">
    <bool>true</bool>
   </property>
@@ -60,10 +60,10 @@
       <string notr="true"/>
      </property>
      <property name="frameShape">
-      <enum>QFrame::NoFrame</enum>
+      <enum>QFrame::Shape::NoFrame</enum>
      </property>
      <property name="frameShadow">
-      <enum>QFrame::Plain</enum>
+      <enum>QFrame::Shadow::Plain</enum>
      </property>
      <property name="sceneRect">
       <rectf>
@@ -73,13 +73,24 @@
        <height>0.000000000000000</height>
       </rectf>
      </property>
-     <property name="renderHints">
-      <set>QPainter::Antialiasing|QPainter::HighQualityAntialiasing|QPainter::NonCosmeticDefaultPen|QPainter::TextAntialiasing</set>
-     </property>
      <property name="dragMode">
-      <enum>QGraphicsView::NoDrag</enum>
+      <enum>QGraphicsView::DragMode::NoDrag</enum>
      </property>
     </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout">
+     <item>
+      <widget class="QComboBox" name="comboBox"/>
+     </item>
+     <item>
+      <widget class="QPushButton" name="saveButton">
+       <property name="text">
+        <string>save</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
    </item>
   </layout>
  </widget>

@@ -7,7 +7,7 @@ set(SRC_CPP_FILES
 
 set(INTERNAL_CPP_FILES
   QmitkM2aiaApplicationPlugin.cpp
-  Perspectives/QmitkSpectrumImagingPerspective.cpp
+  Perspectives/Qm2Perspective.cpp
 )
 
 set(UI_FILES
@@ -22,7 +22,7 @@ set(MOC_H_FILES
   src/QmitkM2aiaViewAction.h
   src/QmitkM2aiaAboutDialog.h
 
-  src/internal/Perspectives/QmitkSpectrumImagingPerspective.h
+  src/internal/Perspectives/Qm2Perspective.h
 )
 
 set(CACHED_RESOURCE_FILES

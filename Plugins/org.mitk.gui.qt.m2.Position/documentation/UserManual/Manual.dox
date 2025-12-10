@@ -1,0 +1,150 @@
+/**
+\page org_mitk_views_m2_Position The M²aia Position View (Manual Registration)
+
+\imageMacro{icon_data.svg, "Icon of the M²aia Position View", 3}
+
+\tableofcontents
+
+\section m2_POSITION_Introduction Introduction
+The M²aia Position View provides manual registration tools for transforming images in the x-y-plane. 
+This view allows you to translate, rotate, and mirror images to correct positioning errors or align multiple datasets.
+The tool operates on selected images in the Data Manager and automatically applies transformations to derived images (ion images, overlays, etc.).
+
+\section m2_POSITION_Features Key Features
+<ul>
+    <li><b>Translation</b>: Move images in X and Y directions with micrometer precision</li>
+    <li><b>Rotation</b>: Rotate images around their center point with degree precision</li>
+    <li><b>Mirroring</b>: Flip images horizontally or vertically</li>
+    <li><b>Keyboard Shortcuts</b>: Quick access to common operations</li>
+    <li><b>Batch Operations</b>: Apply transformations to multiple selected images simultaneously</li>
+    <li><b>Derived Image Support</b>: Automatically applies transformations to child nodes</li>
+</ul>
+
+\section m2_POSITION_Interface User Interface
+
+\subsection m2_POSITION_Controls Main Controls
+
+<b>Rotation Controls</b>\n
+<ul>
+    <li><b>Rotation Angle Spinbox</b>: Set the rotation angle in degrees (range: 0° to +360°, default: 5°)</li>
+    <li><b>+R Button</b>: Rotate clockwise by the specified angle</li>
+    <li><b>-R Button</b>: Rotate counterclockwise by the specified angle</li>
+</ul>
+
+<b>Translation Controls</b>\n
+<ul>
+    <li><b>Step Width Spinbox</b>: Set the translation distance in micrometers (μm) (default: 10 μm)</li>
+    <li><b>Directional Buttons</b>: Up, Down, Left, Right - Move image in specified direction</li>
+</ul>
+
+<b>Mirror Controls</b>\n
+<ul>
+    <li><b>Mirror Horizontally</b>: Flip the image along the vertical axis</li>
+    <li><b>Mirror Vertically</b>: Flip the image along the horizontal axis</li>
+</ul>
+
+\section m2_POSITION_Shortcuts Keyboard Shortcuts
+
+\subsection m2_POSITION_RotationShortcuts Rotation
+<ul>
+    <li><b>Q</b>: Rotate left (counterclockwise) by current rotation angle</li>
+    <li><b>E</b>: Rotate right (clockwise) by current rotation angle</li>
+    <li><b>+ (Plus)</b>: Increase rotation angle by 10%</li>
+    <li><b>- (Minus)</b>: Decrease rotation angle by 10%</li>
+</ul>
+
+\subsection m2_POSITION_TranslationShortcuts Translation
+<ul>
+    <li><b>W</b>: Move up</li>
+    <li><b>S</b>: Move down</li>
+    <li><b>A</b>: Move left</li>
+    <li><b>D</b>: Move right</li>
+    <li><b>Arrow Keys</b>: Alternative movement controls (Up, Down, Left, Right)</li>
+    <li><b>Shift + Plus</b>: Increase step width by 5 μm</li>
+    <li><b>Shift + Minus</b>: Decrease step width by 5 μm</li>
+</ul>
+
+\section m2_POSITION_Usage Usage Instructions
+
+\subsection m2_POSITION_BasicWorkflow Basic Workflow
+1. <b>Select Images</b>: In the Data Manager, select one or more images you want to transform
+2. <b>Choose Operation</b>: Use the Position Tool controls to apply the desired transformation
+3. <b>Apply Transformation</b>: Click the appropriate button or use keyboard shortcuts
+4. <b>View Results</b>: The render windows will automatically update to show the transformed images
+
+\subsection m2_POSITION_Operations Detailed Operations
+
+<b>Translation</b>\n
+1. Set the desired step width in the spinbox (in micrometers)
+2. Use the directional buttons or keyboard shortcuts (WASD or arrow keys) to move the image
+3. The image will be translated by the specified distance in the chosen direction
+
+<b>Rotation</b>\n
+1. Set the desired rotation angle in the spinbox (in degrees)
+2. Use the +R/-R buttons or Q/E keys to rotate the image
+3. The image will be rotated around its geometric center
+
+<b>Mirroring</b>\n
+1. Click "Mirror Horizontally" to flip the image along the vertical axis
+2. Click "Mirror Vertically" to flip the image along the horizontal axis
+3. The transformation includes proper positioning adjustments to maintain image bounds
+
+\section m2_POSITION_UseCases Common Use Cases
+
+\subsection m2_POSITION_AlignmentCorrection Alignment Correction
+<b>Problem</b>: MSI dataset is slightly rotated or offset\n
+<b>Solution</b>:
+<ul>
+    <li>Load the dataset</li>
+    <li>Use small rotation increments (1-5°) to correct orientation</li>
+    <li>Use translation to fine-tune positioning</li>
+</ul>
+
+\subsection m2_POSITION_MultiModalRegistration Multi-Modal Registration
+<b>Problem</b>: Need to align MSI data with histology or other imaging modalities\n
+<b>Solution</b>:
+<ul>
+    <li>Use mirroring to match orientation conventions</li>
+    <li>Apply rotation and translation to achieve coarse alignment</li>
+    <li>Use external registration tools for fine alignment</li>
+</ul>
+
+\subsection m2_POSITION_ComparativeAnalysis Comparative Analysis
+<b>Problem</b>: Multiple MSI datasets need identical orientation for comparison\n
+<b>Solution</b>:
+<ul>
+    <li>Select all datasets simultaneously in the Data Manager</li>
+    <li>Apply standardizing transformations (rotation, mirroring)</li>
+    <li>All datasets will be transformed identically</li>
+</ul>
+
+\section m2_POSITION_Technical Technical Details
+
+\subsection m2_POSITION_CoordinateSystem Coordinate System
+<ul>
+    <li><b>X-axis</b>: Left-right direction (positive = right)</li>
+    <li><b>Y-axis</b>: Up-down direction (positive = down in image coordinates)</li>
+    <li><b>Z-axis</b>: Through-plane direction (typically unused for 2D MSI data)</li>
+</ul>
+
+\subsection m2_POSITION_Precision Precision
+<ul>
+    <li><b>Translation</b>: Micrometer precision (0.0001 mm)</li>
+    <li><b>Rotation</b>: Degree precision with floating-point accuracy</li>
+    <li><b>Mirroring</b>: Exact axis reflection with positioning compensation</li>
+</ul>
+
+\subsection m2_POSITION_BatchProcessing Batch Processing
+When multiple images are selected in the Data Manager:
+<ul>
+    <li>All transformations are applied to every selected image</li>
+    <li>Derived images (ion images, overlays) are automatically transformed</li>
+    <li>Maintains spatial relationships between related datasets</li>
+</ul>
+
+
+\remark The Position Tool uses VTK transformation matrices to apply geometric transformations while preserving image spacing and maintaining proper coordinate system relationships.
+
+\remark All transformations are applied in real-time and can be undone by applying the inverse transformation (e.g., rotate by -angle, translate by -vector, mirror again).
+
+*/

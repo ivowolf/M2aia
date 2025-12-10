@@ -18,9 +18,12 @@ See LICENSE.txt for details.
 #include <mitkDataNode.h>
 #include <mitkLabelSetImage.h>
 #include <type_traits>
+#include <itkEventObject.h>
 
 namespace m2
 {
+
+  itkEventMacroDeclaration(IntervalVectorModified, itk::AnyEvent);
 
   enum class SpectrumFormat : unsigned int
   {
@@ -174,10 +177,11 @@ namespace m2
                                                                 {"Float", 0},
                                                                 {"Double", 1}};
 
-  using DisplayImagePixelType = double;
-  using NormImagePixelType = double;
+  using DisplayImagePixelType = float;
+  using NormImagePixelType = float;
   using IndexType = unsigned int;
   using WorldCoordinateType = float;
+  using ShiftImageType = int;
   using IndexImagePixelType = IndexType;
 
   enum class TransformationMethod

@@ -36,7 +36,28 @@ set(_exclude_plugins
   org.mitk.example.gui.extensionpointdefinition
   org.mitk.example.gui.minimalapplication
   org.mitk.example.gui.multipleperspectives
+  org.mitk.gui.qt.fit.genericfitting
+  org.mitk.gui.qt.dicominspector
+  org.mitk.gui.qt.dicombrowser
+  org.mitk.gui.qt.fit.inspector
+  org.mitk.gui.qt.matchpoint.algorithm.browser
+  org.mitk.gui.qt.matchpoint.algorithm.control
+  org.mitk.gui.qt.matchpoint.framereg
+  org.mitk.gui.qt.matchpoint.manipulator
+  org.mitk.gui.qt.matchpoint.mapper
+  org.mitk.gui.qt.matchpoint.visualizer
+  org.mitk.gui.qt.pharmacokinetics.concentration.mri
+  org.mitk.gui.qt.pharmacokinetics.curvedescriptor
+  org.mitk.gui.qt.pharmacokinetics.mri
 )
+
+# set(BUILD_ModelFitMiniApps OFF CACHE BOOL "Build ModelFit MiniApps" FORCE)
+# set(BUILD_MatchPointCmdApps OFF CACHE BOOL "Build MatchPoint Command Line Tools" FORCE)
+# set(BUILD_DICOMCmdApps OFF CACHE BOOL "Build DICOM Command Line Tools" FORCE)
+# set(BUILD_CoreCmdApps OFF CACHE BOOL "Build Core Command Line Tools" FORCE)
+# set(BUILD_SegmentationCmdApps OFF CACHE BOOL "Build Segmentation Command Line Tools" FORCE)
+
+
 
 mitkFunctionCreateBlueBerryApplication(
   NAME M2aiaWorkbench

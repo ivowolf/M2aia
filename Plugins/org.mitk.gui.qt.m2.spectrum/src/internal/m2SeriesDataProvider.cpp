@@ -16,10 +16,6 @@ See LICENSE.txt or https://www.github.com/m2aia/m2aia for details.
 
 #include "m2SeriesDataProvider.h"
 
-#include <mitkCoreServices.h>
-#include <mitkIPreferencesService.h>
-#include <mitkIPreferences.h>
-
 #include <QColor>
 #include <QHash>
 #include <QLineSeries>
@@ -28,7 +24,10 @@ See LICENSE.txt or https://www.github.com/m2aia/m2aia for details.
 #include <QVariant>
 #include <QXYSeries>
 #include <m2IntervalVector.h>
+#include <mitkCoreServices.h>
 #include <mitkExceptionMacro.h>
+#include <mitkIPreferences.h>
+#include <mitkIPreferencesService.h>
 #include <signal/m2Binning.h>
 
 m2::SeriesDataProvider::SeriesDataProvider()
@@ -36,17 +35,15 @@ m2::SeriesDataProvider::SeriesDataProvider()
 {
 }
 
-void m2::SeriesDataProvider::Initialize(const m2::IntervalVector *data, m2::SpectrumFormat format)
+void m2::SeriesDataProvider::SetData(const m2::IntervalVector *data, m2::SpectrumFormat format)
 {
-  if(format == m2::SpectrumFormat::None)
+  if (format == m2::SpectrumFormat::None)
     m_Format = data->GetType();
   else
     m_Format = format;
   m_IntervalVector = data;
 
-  InitializeSeries();
-  Update();
-  UpdateBoundaries();
+  
 }
 
 m2::SeriesDataProvider::PointsVector m2::SeriesDataProvider::ConvertToQVector(const std::vector<double> &xs,
@@ -62,52 +59,70 @@ m2::SeriesDataProvider::PointsVector m2::SeriesDataProvider::ConvertToQVector(co
 
 void m2::SeriesDataProvider::InitializeSeries()
 {
-  if (m_Format == m2::SpectrumFormat::Centroid)
+  if (to_underlying(m_Format) & to_underlying(m2::SpectrumFormat::Centroid))
   {
-    m_Series = new QtCharts::QLineSeries();
+    m_Series = new QLineSeries();
     SetProfileSpectrumDefaultStyle(m_Series);
     m_Series->setPointsVisible(true);
   }
-  else if (m_Format == m2::SpectrumFormat::Profile)
+  else if (to_underlying(m_Format) & to_underlying(m2::SpectrumFormat::Profile))
   {
-    m_Series = new QtCharts::QLineSeries();
+    m_Series = new QLineSeries();
     SetProfileSpectrumDefaultStyle(m_Series);
     m_Series->setPointsVisible(false);
   }
 }
 
-void m2::SeriesDataProvider::Update()
-{
-  if (m_IntervalVector)
+void m2::SeriesDataProvider::InitializeLoDData() {
+  if (to_underlying(m_Format) & to_underlying(m2::SpectrumFormat::Centroid))
   {
+    m_DataLoD.clear();
+    PointsVector target;
+    m_xs = m_IntervalVector->GetXMean();
+    m_ys = m_IntervalVector->GetYMax(); // Critical?
+    if(m_ys.empty()) return;
+    
+    // auto min = *std::min_element(m_ys.begin(), m_ys.end());
+    // auto max = *std::max_element(m_ys.begin(), m_ys.end());
+
+    // std::transform(std::begin(m_ys), std::end(m_ys), std::begin(m_ys), [min, max](const auto &y) {
+    //   return (y - min) / (max - min);
+    // });
+    
+    using namespace std;
+    transform(begin(m_xs),
+              end(m_xs),
+              begin(m_ys),
+              back_inserter(target),
+              [&](auto a, auto b)
+              {
+                return QPointF(a, b);
+              });
+    m_DataLoD.push_back(target);
+  }
+  else
+  {
+    // MITK_INFO << "Profile = " << (to_underlying(m_Format) & to_underlying(m2::SpectrumFormat::Profile));
+    m_DataLoD.clear();
     m_xs = m_IntervalVector->GetXMean();
     m_ys = m_IntervalVector->GetYMean(); // Critical?
-
-    m_DataLoD.clear();
-    if (m_Format == m2::SpectrumFormat::Centroid)
-    {
-      PointsVector target;
-      using namespace std;
-      transform(
-        begin(m_xs), end(m_xs), begin(m_ys), back_inserter(target), [](auto a, auto b) { return QPointF(a, b); });
-      m_DataLoD.push_back(target);
-      return;
-    }
-
-    m_DataLoD.resize(m_Levels.size());
-    unsigned int dataLodVectorIndex = 0;
-
+    if(m_ys.empty()) return;
+    
+    // auto min = *std::min_element(m_ys.begin(), m_ys.end());
+    // auto max = *std::max_element(m_ys.begin(), m_ys.end());
+    
+    // std::transform(std::begin(m_ys), std::end(m_ys), std::begin(m_ys), [min, max](const auto &y) {
+    //   return (y - min) / (max - min);
+    // });
+    
     for (unsigned int level : m_Levels)
-    {
-      m_DataLoD[dataLodVectorIndex] = GenerateLoDData(m_xs, m_ys, level);
-      ++dataLodVectorIndex;
-    }
-  }else{
-    mitkThrow() << "Interval Vector not set correctly";
+      m_DataLoD.push_back(GenerateLoDData(m_xs, m_ys, level));
+
+    
   }
 }
 
-void m2::SeriesDataProvider::UpdateBoundaries(double x1, double x2)
+void m2::SeriesDataProvider::GenerateSeriesDataWithinRange(double x1, double x2)
 {
   using namespace std;
 
@@ -120,61 +135,41 @@ void m2::SeriesDataProvider::UpdateBoundaries(double x1, double x2)
     x2 = m_xs.back();
   }
 
-  //   if (m_Format == Format::centorid)
-  //   {
-  //     m_Series->setVisible(true);
+  auto level = FindLoD(x1, x2); // always 0 for centroid data
+  // MITK_INFO << "Level: " << level;
+  const auto &currentData = m_DataLoD[level];
+  auto lower = std::lower_bound(std::begin(currentData),
+                                std::end(currentData),
+                                QPointF{x1 - 1, 0},
+                                [](const auto &a, const auto &b) { return a.x() < b.x(); });
+  const auto upper = std::upper_bound(
+    lower, std::end(currentData), QPointF{x2 + 1, 0}, [](const auto &a, const auto &b) { return a.x() < b.x(); });
 
-  //     auto lowerX = lower_bound(begin(m_xs), end(m_xs), x1);
-  //     auto upperX = upper_bound(lowerX, end(m_xs), x2);
+  QVector<QPointF> seriesData;
 
-  //     auto lowerY = next(begin(m_ys), distance(begin(m_xs), lowerX));
-  //     // auto upperY = next(lowerY, distance(begin(m_xs), upperX));
-
-  //     PointsVector seriesData;
-  //     seriesData.reserve(distance(lowerX, upperX));
-  //     auto insert = back_inserter(seriesData);
-
-  //     for (; lowerX != upperX; ++lowerX, ++lowerY)
-  //       insert = QPointF{*lowerX, *lowerY};
-
-  //     m_Series->replace(seriesData);
-  //   }
-  //   else
-  {
-    auto level = FindLoD(x1, x2);
-    const auto &currentData = m_DataLoD[level];
-    auto lower = std::lower_bound(std::begin(currentData),
-                                  std::end(currentData),
-                                  QPointF{x1, 0},
-                                  [](const auto &a, const auto &b) { return a.x() < b.x(); });
-    const auto upper = std::upper_bound(
-      lower, std::end(currentData), QPointF{x2, 0}, [](const auto &a, const auto &b) { return a.x() < b.x(); });
-
-    QVector<QPointF> seriesData;
+  if (to_underlying(m_Format) & to_underlying(m2::SpectrumFormat::Centroid))
+    seriesData.reserve(std::distance(lower, upper) * 3);
+  else
     seriesData.reserve(std::distance(lower, upper));
-    auto insert = std::back_inserter(seriesData);
 
-    // marker highlighting
-    unsigned int i = std::distance(std::begin(currentData), lower);
+  auto insert = std::back_inserter(seriesData);
 
-    for (; lower != upper; ++lower, ++i)
+  for (; lower != upper; ++lower)
+  {
+    if (to_underlying(m_Format) & to_underlying(m2::SpectrumFormat::Centroid))
     {
-      if (m_Format == m2::SpectrumFormat::Centroid)
-      {
-        insert = QPointF{lower->x(), -0.001};
-        insert = QPointF{lower->x(), lower->y()};
-        insert = QPointF{lower->x(), -0.001};
-      }
-      else
-      {
-        insert = QPointF{lower->x(), lower->y()};
-      }
+      insert = QPointF{lower->x(), -0.001};
+      insert = QPointF{lower->x(), lower->y()};
+      insert = QPointF{lower->x(), -0.001};
     }
-    m_Series->replace(seriesData);
-
-    using namespace QtCharts;
-    // process series after points were added
+    else
+    {
+      insert = QPointF{lower->x(), lower->y()};
+    }
   }
+  // MITK_INFO << "Replaced";
+  // MITK_INFO << m_Series->points().size();
+  m_Series->replace(seriesData);
 }
 
 m2::SeriesDataProvider::PointsVector m2::SeriesDataProvider::GenerateLoDData(std::vector<double> &xs,
@@ -195,13 +190,11 @@ m2::SeriesDataProvider::PointsVector m2::SeriesDataProvider::GenerateLoDData(std
   std::transform(std::begin(binnedData),
                  std::end(binnedData),
                  std::back_inserter(target),
-                 [](const m2::Interval &p) {
-                   return QPointF{p.x.mean(), p.y.max()};
-                 });
+                 [](const m2::Interval &p) { return QPointF{p.x.mean(), p.y.max()}; });
   return target;
 }
 
-void m2::SeriesDataProvider::SetProfileSpectrumDefaultStyle(QtCharts::QXYSeries *series)
+void m2::SeriesDataProvider::SetProfileSpectrumDefaultStyle(QXYSeries *series)
 {
   auto p = series->pen();
   p.setWidthF(.75);
@@ -209,20 +202,20 @@ void m2::SeriesDataProvider::SetProfileSpectrumDefaultStyle(QtCharts::QXYSeries 
   series->setPen(p);
 }
 
-void m2::SeriesDataProvider::SetCentroidSpectrumDefaultMarkerStyle(QtCharts::QXYSeries *series)
+void m2::SeriesDataProvider::SetCentroidSpectrumDefaultMarkerStyle(QXYSeries *series)
 {
-  if (auto scatterSeries = dynamic_cast<QtCharts::QScatterSeries *>(series))
+  if (auto scatterSeries = dynamic_cast<QScatterSeries *>(series))
   {
-    scatterSeries->setMarkerShape(QtCharts::QScatterSeries::MarkerShape::MarkerShapeRectangle);
+    scatterSeries->setMarkerShape(QScatterSeries::MarkerShape::MarkerShapeRectangle);
     scatterSeries->setMarkerSize(3);
   }
 }
 
-void m2::SeriesDataProvider::SetMarkerSpectrumDefaultMarkerStyle(QtCharts::QXYSeries *series)
+void m2::SeriesDataProvider::SetMarkerSpectrumDefaultMarkerStyle(QXYSeries *series)
 {
-  if (auto scatterSeries = dynamic_cast<QtCharts::QScatterSeries *>(series))
+  if (auto scatterSeries = dynamic_cast<QScatterSeries *>(series))
   {
-    scatterSeries->setMarkerShape(QtCharts::QScatterSeries::MarkerShape::MarkerShapeCircle);
+    scatterSeries->setMarkerShape(QScatterSeries::MarkerShape::MarkerShapeCircle);
     scatterSeries->setMarkerSize(3);
     scatterSeries->setColor(Qt::GlobalColor::red);
   }
@@ -230,12 +223,15 @@ void m2::SeriesDataProvider::SetMarkerSpectrumDefaultMarkerStyle(QtCharts::QXYSe
 
 int m2::SeriesDataProvider::FindLoD(double xMin, double xMax) const
 {
-  if (m_Format == m2::SpectrumFormat::Centroid)
+  if (to_underlying(m_Format) & to_underlying(m2::SpectrumFormat::Centroid)){
     return 0;
+  }
 
-  auto* preferencesService = mitk::CoreServices::GetPreferencesService();
-  auto* preferences = preferencesService->GetSystemPreferences();
-  auto pointsWanted = preferences->GetInt("m2aia.view.spectrum.bins", 1500);
+  auto *preferencesService = mitk::CoreServices::GetPreferencesService();
+  auto *preferences = preferencesService->GetSystemPreferences();
+  auto pointsWanted = preferences->GetInt("m2aia.view.spectrum.bins", 15000);
+
+  // MITK_INFO << "Points wanted: " << pointsWanted;
 
   int level, levelIndex = 0;
   const auto wantedDensity = pointsWanted / double(xMax - xMin);

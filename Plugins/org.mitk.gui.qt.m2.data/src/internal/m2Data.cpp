@@ -22,16 +22,20 @@ See LICENSE.txt for details.
 #include <QComboBox>
 #include <QInputDialog>
 #include <QmitkRenderWindow.h>
+#include <QMainWindow>
+#include <QStatusBar>
 #include <QtConcurrent>
 #include <boost/format.hpp>
 #include <itkRescaleIntensityImageFilter.h>
 #include <itksys/SystemTools.hxx>
-#include <m2FsmSpectrumImage.h>
+#include <m2SpectrumContainerImage.h>
 #include <m2ImzMLSpectrumImage.h>
 #include <m2IntervalVector.h>
 #include <m2SpectrumImage.h>
 #include <m2SpectrumImageDataInteractor.h>
+#include <m2Process.hpp>
 #include <m2SpectrumImageStack.h>
+#include <m2ShiftMapImageFilter.h>
 #include <m2SubdivideImage2DFilter.h>
 #include <m2UIUtils.h>
 #include <mitkColorProperty.h>
@@ -39,15 +43,21 @@ See LICENSE.txt for details.
 #include <mitkIPreferences.h>
 #include <mitkIPreferencesService.h>
 #include <mitkImageCast.h>
+#include <mitkIOUtil.h>
 #include <mitkLayoutAnnotationRenderer.h>
 #include <mitkLookupTableProperty.h>
 #include <mitkNodePredicateAnd.h>
 #include <mitkNodePredicateDataType.h>
 #include <mitkNodePredicateNot.h>
 #include <mitkNodePredicateOr.h>
+#include <mitkNodePredicateDataType.h>
 #include <mitkNodePredicateProperty.h>
 #include <mitkImagePixelWriteAccessor.h>
+#include <mitkImageVtkMapper2D.h>
+#include <mitkImageAccessByItk.h>
+#include <m2ImzMLImageIO.h>
 #include <regex>
+// #include <Qm2AssociatedFilesDialog.h>
 
 const std::string m2Data::VIEW_ID = "org.mitk.views.m2.data";
 
@@ -62,6 +72,8 @@ void m2Data::CreateQtPartControl(QWidget *parent)
   InitRangePoolingControls();
   InitSmoothingControls();
   InitIntensityTransformationControls();
+  InitImageNormalizationControls();
+  InitImageSmoothingControls();
 
   auto serviceRef = m2::UIUtils::Instance();
   connect(serviceRef, SIGNAL(UpdateImage(qreal, qreal)), this, SLOT(OnGenerateImageData(qreal, qreal)));
@@ -76,8 +88,31 @@ void m2Data::CreateQtPartControl(QWidget *parent)
   auto UIUtilsObject = m2::UIUtils::Instance();
   connect(UIUtilsObject, SIGNAL(PreviousImage()), this, SLOT(OnCreatePrevImage()));
   connect(UIUtilsObject, SIGNAL(NextImage()), this, SLOT(OnCreateNextImage()));
+  connect(UIUtilsObject, SIGNAL(PreviousPeakImage()), this, SLOT(OnCreatePrevPeakImage()));
+  connect(UIUtilsObject, SIGNAL(NextPeakImage()), this, SLOT(OnCreateNextPeakImage()));
   connect(UIUtilsObject, SIGNAL(IncreaseTolerance()), this, SLOT(OnIncreaseTolerance()));
   connect(UIUtilsObject, SIGNAL(DecreaseTolerance()), this, SLOT(OnDecreaseTolerance()));
+
+  connect(m_Controls.btnCreateShiftMap, SIGNAL(clicked()), this, SLOT(OnCreateShiftMap()));
+
+
+  // Position list/history
+  // connect(m_Controls.listWidgetPositions, &QTableWidget::cellDoubleClicked, this, [this](int row, int){
+  //   auto text = m_Controls.listWidgetPositions->item(row, 0)->text();
+  //   if (text == "Empty")
+  //     return;
+  //   if (row == 0){
+  //     m_Controls.listWidgetPositions->insertRow(0);
+  //     m_Controls.listWidgetPositions->setItem(0, 0, new QTableWidgetItem("Empty")); 
+  //   }
+  //   else
+  //   {
+  //     auto x = text.split(" ")[1].toDouble();
+  //     auto tol = text.split(" ")[3].toDouble();
+  //     this->OnGenerateImageData(x, tol);
+  //   }
+  // });
+  
 
   // Settings (show hlper objects)
   using namespace mitk;
@@ -86,17 +121,14 @@ void m2Data::CreateQtPartControl(QWidget *parent)
   {
     const auto a = TNodePredicateDataType<m2::SpectrumImageStack>::New();
     const auto b = TNodePredicateDataType<m2::ImzMLSpectrumImage>::New();
-    const auto c = TNodePredicateDataType<m2::FsmSpectrumImage>::New();
+    const auto c = TNodePredicateDataType<m2::SpectrumContainerImage>::New();
     const auto predicate = NodePredicateOr::New(a, b, c);
     const auto nodes = this->GetDataStorage()->GetSubset(predicate);
     for (const auto &node : *nodes)
     {
       if (auto image = dynamic_cast<m2::SpectrumImage *>(node->GetData()))
       {
-        if (!image->GetNormalizationImageStatus(type))
-          image->InitializeNormalizationImage(type);
-
-        std::string name = "NormalizationImage" + m2::to_string(type);
+        std::string name = node->GetName() + "." + m2::to_string(type);
 
         const auto derivations = this->GetDataStorage()->GetDerivations(node);
         for (const auto &dNode : *derivations)
@@ -109,6 +141,8 @@ void m2Data::CreateQtPartControl(QWidget *parent)
               dNode->SetBoolProperty("helper object", true);
             else
             {
+              if (!image->GetNormalizationImageStatus(type))
+                 image->InitializeNormalizationImage(type);
               // if it should be visible in the data storage remove the helper object property
               dNode->RemoveProperty("helper object");
 
@@ -127,11 +161,11 @@ void m2Data::CreateQtPartControl(QWidget *parent)
     }
   };
 
-  const auto toggleByName = [&](bool isChecked, const char *name)
+  const auto toggleByName = [&](bool isChecked, const char *postfix)
   {
     const auto a = TNodePredicateDataType<m2::SpectrumImageStack>::New();
     const auto b = TNodePredicateDataType<m2::ImzMLSpectrumImage>::New();
-    const auto c = TNodePredicateDataType<m2::FsmSpectrumImage>::New();
+    const auto c = TNodePredicateDataType<m2::SpectrumContainerImage>::New();
     const auto predicate = NodePredicateOr::New(a, b, c);
     const auto nodes = this->GetDataStorage()->GetSubset(predicate);
     for (const auto &node : *nodes)
@@ -139,10 +173,9 @@ void m2Data::CreateQtPartControl(QWidget *parent)
       const auto derivations = this->GetDataStorage()->GetDerivations(node);
       for (const auto &dNode : *derivations)
       {
-        if (dNode->GetName().find(name) != std::string::npos)
+        if (dNode->GetName().find(postfix) != std::string::npos)
         {
           dNode->SetVisibility(isChecked);
-
           if (!isChecked)
             dNode->SetBoolProperty("helper object", true);
           else
@@ -157,9 +190,6 @@ void m2Data::CreateQtPartControl(QWidget *parent)
   int i = 1;
   for (m2::NormalizationStrategyType type : m2::NormalizationStrategyTypeList)
   {
-    if (type == m2::NormalizationStrategyType::None)
-      continue;
-
     auto ckBox = new QCheckBox(("Show " + m2::to_string(type) + " normalization images").c_str(), m_Controls.settings);
     QHBoxLayout *layout = (QHBoxLayout *)(m_Controls.settings->layout());
     layout->insertWidget(layout->indexOf(m_Controls.hLineNormImages) + i, ckBox);
@@ -169,30 +199,31 @@ void m2Data::CreateQtPartControl(QWidget *parent)
     ++i;
   }
 
+
   connect(m_Controls.showIndexImages,
           &QCheckBox::toggled,
           this,
-          [toggleByName](bool isChecked) { toggleByName(isChecked, "IndexImage"); });
+          [toggleByName](bool isChecked) { toggleByName(isChecked, ".index"); });
   connect(m_Controls.showMaskImages,
           &QCheckBox::toggled,
           this,
-          [toggleByName](bool isChecked) { toggleByName(isChecked, "MaskImage"); });
+          [toggleByName](bool isChecked) { toggleByName(isChecked, ".mask"); });
   connect(m_Controls.showMeanSpectrum,
           &QCheckBox::toggled,
           this,
-          [toggleByName](bool isChecked) { toggleByName(isChecked, "MeanSpectrum"); });
+          [toggleByName](bool isChecked) { toggleByName(isChecked, ".mean_spectrum"); });
   connect(m_Controls.showMaxSpectrum,
           &QCheckBox::toggled,
           this,
-          [toggleByName](bool isChecked) { toggleByName(isChecked, "MaxSpectrum"); });
+          [toggleByName](bool isChecked) { toggleByName(isChecked, ".max_spectrum"); });
   connect(m_Controls.showSingleSpectrum,
           &QCheckBox::stateChanged,
           this,
-          [toggleByName](bool isChecked) { toggleByName(isChecked, "SingleSpectrum"); });
+          [toggleByName](bool isChecked) { toggleByName(isChecked, ".single_spectrum"); });
   connect(m_Controls.showCentroidSpectrum,
           &QCheckBox::stateChanged,
           this,
-          [toggleByName](bool isChecked) { toggleByName(isChecked, "CentroidSpectrum"); });
+          [toggleByName](bool isChecked) { toggleByName(isChecked, ".centroids"); });
 
   connect(m2::UIUtils::Instance(),
           &m2::UIUtils::RequestTolerance,
@@ -208,60 +239,102 @@ void m2Data::CreateQtPartControl(QWidget *parent)
   auto *preferencesService = mitk::CoreServices::GetPreferencesService();
   auto *preferences = preferencesService->GetSystemPreferences();
 
+  auto UpdateNodeSettings = [this](){
+    auto nodesToProcess = m2::UIUtils::AllNodes(GetDataStorage());
+    ApplySettingsToNodes(nodesToProcess);
+  };
+
   connect(m_Controls.spnBxTol,
           qOverload<double>(&QDoubleSpinBox::valueChanged),
           this,
-          [this, preferences](int)
+          [this, preferences, UpdateNodeSettings](int)
           {
             auto value = m_Controls.spnBxTol->value();
             preferences->PutFloat("m2aia.signal.Tolerance", value);
+            UpdateNodeSettings();
           });
+
   connect(m_Controls.CBNormalization,
           qOverload<int>(&QComboBox::currentIndexChanged),
           this,
-          [this, preferences](int)
+          [this, preferences, UpdateNodeSettings](int)
           {
             auto value = m_Controls.CBNormalization->currentData().toUInt();
             preferences->PutInt("m2aia.signal.NormalizationStrategy", value);
-            // MITK_INFO << "selected Method " << value;
           });
 
   connect(m_Controls.CBTransformation,
           qOverload<int>(&QComboBox::currentIndexChanged),
           this,
-          [this, preferences](int)
+          [this, preferences, UpdateNodeSettings](int)
           {
             auto value = m_Controls.CBTransformation->currentData().toUInt();
             preferences->PutInt("m2aia.signal.IntensityTransformationStrategy", value);
+            UpdateNodeSettings();
           });
 
   connect(m_Controls.CBImagingStrategy,
           qOverload<int>(&QComboBox::currentIndexChanged),
           this,
-          [this, preferences](int)
+          [this, preferences, UpdateNodeSettings](int)
           {
             auto value = m_Controls.CBImagingStrategy->currentData().toUInt();
             preferences->PutInt("m2aia.signal.RangePoolingStrategy", value);
+            UpdateNodeSettings();
           });
+
   connect(m_Controls.CBSmoothing,
           qOverload<int>(&QComboBox::currentIndexChanged),
           this,
-          [this, preferences](int)
+          [this, preferences, UpdateNodeSettings](int)
           {
             auto value = m_Controls.CBSmoothing->currentData().toUInt();
             preferences->PutInt("m2aia.signal.SmoothingStrategy", value);
+            UpdateNodeSettings();
           });
+
+  connect(m_Controls.CBImageNormalization,
+          qOverload<int>(&QComboBox::currentIndexChanged),
+          this,
+          [this, preferences, UpdateNodeSettings](int)
+          {
+            auto value = m_Controls.CBImageNormalization->currentData().toUInt();
+            preferences->PutInt("m2aia.signal.ImageNormalizationStrategy", value);
+            UpdateNodeSettings();
+          });
+
+  connect(m_Controls.CBImageSmoothing,
+          qOverload<int>(&QComboBox::currentIndexChanged),
+          this,
+          [this, preferences, UpdateNodeSettings](int)
+          {
+            auto value = m_Controls.CBImageSmoothing->currentData().toUInt();
+            preferences->PutInt("m2aia.signal.ImageSmoothingStrategy", value);
+            UpdateNodeSettings();
+          });
+
+
+          
 
   // default values
   m_Controls.spnBxTol->setValue(preferences->GetFloat("m2aia.signal.Tolerance", 75));
+  
   m_Controls.CBNormalization->setCurrentIndex(
     preferences->GetInt("m2aia.signal.NormalizationStrategy", to_underlying(m2::NormalizationStrategyType::None)));
+  
   m_Controls.CBTransformation->setCurrentIndex(preferences->GetInt("m2aia.signal.IntensityTransformationStrategy",
                                                                    to_underlying(m2::NormalizationStrategyType::None)));
   m_Controls.CBSmoothing->setCurrentIndex(
     preferences->GetInt("m2aia.signal.SmoothingStrategy", to_underlying(m2::NormalizationStrategyType::None)));
+  
   m_Controls.CBImagingStrategy->setCurrentIndex(
     preferences->GetInt("m2aia.signal.RangePoolingStrategy", to_underlying(m2::NormalizationStrategyType::Mean)));
+  
+  m_Controls.CBImageNormalization->setCurrentIndex(
+    preferences->GetInt("m2aia.signal.ImageNormalizationStrategy", to_underlying(m2::ImageNormalizationStrategyType::None)));
+  
+  m_Controls.CBImageNormalization->setCurrentIndex(
+    preferences->GetInt("m2aia.signal.ImageSmoothingStrategy", to_underlying(m2::ImageSmoothingStrategyType::None)));
 
   // Make sure, that data nodes added before this view
   // is initialized are handled correctly!!
@@ -311,6 +384,12 @@ void m2Data::CreateQtPartControl(QWidget *parent)
               watcher.reset();
             });
   }
+
+
+  connect(&m_ResetPreventDataStorageOverload, &QFutureWatcher<void>::finished, this, [this]() {
+    mitk::RenderingManager::GetInstance()->InitializeViewsByBoundingObjects(this->GetDataStorage());
+    this->RequestRenderWindowUpdate();
+  });
 }
 
 void m2Data::InitToleranceControls()
@@ -341,6 +420,49 @@ m2::NormalizationStrategyType m2Data::GuiToNormalizationStrategyType()
     preferences->GetInt("m2aia.signal.NormalizationStrategy", to_underlying(m2::NormalizationStrategyType::None));
   return static_cast<m2::NormalizationStrategyType>(value);
 }
+
+void m2Data::InitImageNormalizationControls(){
+  auto *preferencesService = mitk::CoreServices::GetPreferencesService();
+  auto *preferences = preferencesService->GetSystemPreferences();
+  auto defaultValue =
+    preferences->GetInt("m2aia.signal.ImageNormalizationStrategy", to_underlying(m2::ImageNormalizationStrategyType::None));
+  auto cb = Controls()->CBImageNormalization;
+  for (unsigned int i = 0; i < m2::ImageNormalizationStrategyTypeNames.size(); ++i)
+    cb->addItem(m2::ImageNormalizationStrategyTypeNames[i].c_str(), {i});
+  cb->setCurrentIndex(defaultValue);
+}
+
+
+m2::ImageNormalizationStrategyType m2Data::GuiToImageNormalizationStrategyType()
+{
+  auto *preferencesService = mitk::CoreServices::GetPreferencesService();
+  auto *preferences = preferencesService->GetSystemPreferences();
+  auto value =
+    preferences->GetInt("m2aia.signal.ImageNormalizationStrategy", to_underlying(m2::ImageNormalizationStrategyType::None));
+  return static_cast<m2::ImageNormalizationStrategyType>(value);
+}
+
+m2::ImageSmoothingStrategyType m2Data::GuiToImageSmoothingStrategyType()
+{
+  auto *preferencesService = mitk::CoreServices::GetPreferencesService();
+  auto *preferences = preferencesService->GetSystemPreferences();
+  auto value =
+    preferences->GetInt("m2aia.signal.ImageSmoothingStrategy", to_underlying(m2::ImageSmoothingStrategyType::None));
+  return static_cast<m2::ImageSmoothingStrategyType>(value);
+}
+
+void m2Data::InitImageSmoothingControls()
+{
+  auto *preferencesService = mitk::CoreServices::GetPreferencesService();
+  auto *preferences = preferencesService->GetSystemPreferences();
+  auto defaultValue =
+    preferences->GetInt("m2aia.signal.ImageSmoothingStrategy", to_underlying(m2::ImageSmoothingStrategyType::None));
+  auto cb = Controls()->CBImageSmoothing;
+  for (unsigned int i = 0; i < m2::ImageSmoothingStrategyTypeNames.size(); ++i)
+    cb->addItem(m2::ImageSmoothingStrategyTypeNames[i].c_str(), {i});
+  cb->setCurrentIndex(defaultValue);
+}
+
 
 void m2Data::InitIntensityTransformationControls()
 {
@@ -470,7 +592,7 @@ void m2Data::OnCreateNextImage()
   auto offset = m_Controls.spnBxTol->value();
   if (m_Controls.rbtnTolPPM->isChecked())
   {
-    offset = m2::PartPerMillionToFactor(offset) * center;
+    offset = m2::PartPerMillionToFactor(offset)*.5 * center;
   }
   this->OnGenerateImageData(center + offset, FROM_GUI);
 }
@@ -481,9 +603,113 @@ void m2Data::OnCreatePrevImage()
   auto offset = m_Controls.spnBxTol->value();
   if (m_Controls.rbtnTolPPM->isChecked())
   {
-    offset = m2::PartPerMillionToFactor(offset) * center;
+    offset = m2::PartPerMillionToFactor(offset)*.5 * center;
   }
   this->OnGenerateImageData(center - offset, FROM_GUI);
+}
+
+void m2Data::OnCreateNextPeakImage()
+{
+  auto predicate = mitk::TNodePredicateDataType<m2::IntervalVector>::New();
+  auto processableNodes = GetDataStorage()->GetSubset(predicate)->CastToSTLConstContainer();
+
+  auto center = m_Controls.spnBxMz->value();
+  auto tolerance = m_Controls.spnBxTol->value();
+  if (m_Controls.rbtnTolPPM->isChecked())
+    tolerance = m2::PartPerMillionToFactor(tolerance)*.5 * center;
+  
+  std::vector<m2::Interval> nearestValues;
+  for (auto node : processableNodes)
+  {
+    if (auto intervalVector = dynamic_cast<m2::IntervalVector *>(node->GetData()))
+    {
+      const auto intervalType = to_underlying(intervalVector->GetType());
+      const auto centroidType = to_underlying(m2::SpectrumFormat::Centroid);
+      if (intervalType & centroidType)
+      {
+        auto intervals = intervalVector->GetIntervals();
+        auto nearestElement = std::min_element(intervals.begin(),
+                                               intervals.end(),
+                                               [center, tolerance](const m2::Interval &a, const m2::Interval &b)
+                                               {
+                                                 // Ensure both are greater than target, and compare only those
+                                                 if (a.x.mean() <= center + tolerance)
+                                                   return false;
+                                                 if (b.x.mean() <= center + tolerance)
+                                                   return true;
+                                                 return a.x.mean() < b.x.mean();
+                                               });
+        if (nearestElement == intervals.end() || nearestElement->x.mean() <= center)
+          continue;
+        
+        nearestValues.push_back(*nearestElement);
+      }
+    }
+  }
+
+  auto nearestElement = std::min_element(nearestValues.begin(),
+                   nearestValues.end(),
+                   [center](const m2::Interval &a, const m2::Interval &b)
+                   {
+                     return a.x.mean() < b.x.mean();
+                   });
+
+  if (nearestElement == nearestValues.end())
+    return; // no peak found
+
+  this->OnGenerateImageData(nearestElement->x.mean(), FROM_GUI);
+}
+
+void m2Data::OnCreatePrevPeakImage()
+{
+  auto predicate = mitk::TNodePredicateDataType<m2::IntervalVector>::New();
+  auto processableNodes = GetDataStorage()->GetSubset(predicate)->CastToSTLConstContainer();
+
+  auto center = m_Controls.spnBxMz->value();
+  auto tolerance = m_Controls.spnBxTol->value();
+  if (m_Controls.rbtnTolPPM->isChecked())
+    tolerance = m2::PartPerMillionToFactor(tolerance)*.5 * center;
+  
+  std::vector<m2::Interval> nearestValues;
+  for (auto node : processableNodes)
+  {
+    if (auto intervalVector = dynamic_cast<m2::IntervalVector *>(node->GetData()))
+    {
+      const auto intervalType = to_underlying(intervalVector->GetType());
+      const auto centroidType = to_underlying(m2::SpectrumFormat::Centroid);
+      if (intervalType & centroidType)
+      {
+        auto intervals = intervalVector->GetIntervals();
+        auto nearestElement = std::min_element(intervals.begin(),
+                                               intervals.end(),
+                                               [center, tolerance](const m2::Interval &a, const m2::Interval &b)
+                                               {
+                                                 // Ensure both are greater than target, and compare only those
+                                                 if (a.x.mean() >= center - tolerance)
+                                                   return false;
+                                                 if (b.x.mean() >= center - tolerance)
+                                                   return true;
+                                                 return a.x.mean() > b.x.mean();
+                                               });
+        if (nearestElement == intervals.end() || nearestElement->x.mean() >= center)
+          continue;
+        
+        nearestValues.push_back(*nearestElement);
+      }
+    }
+  }
+
+  auto nearestElement = std::min_element(nearestValues.begin(),
+                   nearestValues.end(),
+                   [center](const m2::Interval &a, const m2::Interval &b)
+                   {
+                     return a.x.mean() > b.x.mean();
+                   });
+
+  if (nearestElement == nearestValues.end()) 
+    return; // no peak found
+
+  this->OnGenerateImageData(nearestElement->x.mean(), FROM_GUI);
 }
 
 void m2Data::ApplySettingsToNodes(m2::UIUtils::NodesVectorType::Pointer v)
@@ -505,16 +731,19 @@ void m2Data::ApplySettingsToImage(m2::SpectrumImage *data)
     data->SetRangePoolingStrategy(GuiToRangePoolingStrategyType());
     data->SetIntensityTransformationStrategy(GuiToIntensityTransformationStrategyType());
 
-    // if (data->GetSmoothingStrategy() == m2::SmoothingType::Gaussian)
-    // {
-    //   auto d = int(m_Controls.spnBxSigma->value() * 4 + 0.5);
-    //   m_Controls.spnBxSmoothing->setValue(d);
-    // }
+    data->SetImageNormalizationStrategy(GuiToImageNormalizationStrategyType());
+    data->SetImageSmoothingStrategy(GuiToImageSmoothingStrategyType());
+
     data->SetSmoothingHalfWindowSize(m_Controls.spnBxSmoothing->value());
     data->SetBaseLineCorrectionHalfWindowSize(m_Controls.spnBxBaseline->value());
     data->SetUseToleranceInPPM(m_Controls.rbtnTolPPM->isChecked());
 
-    // data->SetBinningTolerance(m_Controls.spnBxPeakBinning->value());
+    
+    // Initialize normalization image
+    auto type = data->GetNormalizationStrategy();
+    if(!data->GetNormalizationImageStatus(type))
+      data->InitializeNormalizationImage(type);
+    
   }
 }
 
@@ -540,14 +769,20 @@ void m2Data::OnGenerateImageData(mitk::DataNode::Pointer node,
   {
     auto xMin = data->GetPropertyValue<double>("m2aia.xs.min");
     auto xMax = data->GetPropertyValue<double>("m2aia.xs.max");
-    if (xRangeCenter > xMax || xRangeCenter < xMin)
-      return
+    if (xRangeCenter > xMax || xRangeCenter < xMin){
+      // mitk::ImagePixelWriteAccessor<m2::DisplayImagePixelType, 3> acc(data);
+      // auto N = std::accumulate(data->GetDimensions(), data->GetDimensions()+3, 1, std::multiplies<int>());
+      // std::fill(acc.GetData(), acc.GetData() + N, 0);
+      // UpdateLevelWindow(node);
+      // this->RequestRenderWindowUpdate();
+      return;
+    }
 
-        ApplySettingsToImage(data);
+    ApplySettingsToImage(data);
     if (!data->IsInitialized())
       mitkThrow() << "Trying to grab an ion image but data access was not initialized properly!";
 
-    mitk::Image::Pointer maskImage;
+    mitk::Image::Pointer maskImage = data->GetMaskImage();
 
     // The smartpointer will stay alive until all captured copies are relesed. Additional
     // all connected signals must be disconnected to make sure that the future is not kept
@@ -561,7 +796,7 @@ void m2Data::OnGenerateImageData(mitk::DataNode::Pointer node,
     {
       auto image = future->result();
       UpdateLevelWindow(node);
-      UpdateSpectrumImageTable(node);
+      // UpdateSpectrumImageTable(node);
       node->SetProperty("m2aia.xs.selection.center", image->GetProperty("m2aia.xs.selection.center"));
       node->SetProperty("m2aia.xs.selection.tolerance", image->GetProperty("m2aia.xs.selection.tolerance"));
       this->RequestRenderWindowUpdate();
@@ -595,6 +830,34 @@ void m2Data::OnGenerateImageData(mitk::DataNode::Pointer node,
   }
 }
 
+
+void m2Data::OnCreateShiftMap()
+{
+// get the selection
+  auto nodesToProcess = m2::UIUtils::AllNodes(GetDataStorage());
+
+  if (nodesToProcess->empty())
+    return;
+
+  // process all nodes
+  for (mitk::DataNode::Pointer dataNode : *nodesToProcess)
+    if (m2::ImzMLSpectrumImage::Pointer data = dynamic_cast<m2::ImzMLSpectrumImage *>(dataNode->GetData()))
+    {
+
+      auto shiftMapFilter = m2::ShiftMapImageFilter::New();
+
+      shiftMapFilter->SetInput(data);
+      shiftMapFilter->GenerateData();
+      
+      auto node = mitk::DataNode::New();
+      node->SetData(shiftMapFilter->GetOutput(1));
+      node->SetName(dataNode->GetName() + ".shift");
+      GetDataStorage()->Add(node, dataNode);
+
+    }
+}
+
+
 void m2Data::OnGenerateImageData(qreal xRangeCenter, qreal xRangeTol)
 {
   // get the selection
@@ -603,31 +866,36 @@ void m2Data::OnGenerateImageData(qreal xRangeCenter, qreal xRangeTol)
 
   if (nodesToProcess->empty())
     return;
+
   if (xRangeTol < 0){
     xRangeTol = Controls()->spnBxTol->value();
     bool isPpm = Controls()->rbtnTolPPM->isChecked();
     xRangeTol = isPpm ? m2::PartPerMillionToFactor(xRangeTol) * xRangeCenter : xRangeTol;
   }
 
-  emit m2::UIUtils::Instance()->RangeChanged(xRangeCenter, xRangeTol);
   
+  emit m2::UIUtils::Instance()->RangeChanged(xRangeCenter, xRangeTol);
   this->m_Controls.spnBxMz->setValue(xRangeCenter);
   auto flag = std::make_shared<std::atomic<bool>>(0);
 
   QString labelText = str(boost::format("%.4f +/- %.2f Da") % xRangeCenter % xRangeTol).c_str();
-  this->UpdateTextAnnotations(labelText.toStdString());
 
-  if (nodesToProcess->size() == 1)
+  if (nodesToProcess->size())
   {
     auto node = nodesToProcess->front();
     if (auto image = dynamic_cast<m2::SpectrumImage *>(node->GetData()))
     {
       std::string xLabel = image->GetSpectrumType().XAxisLabel;
-      labelText = "[" + QString(xLabel.c_str()) + "]" + labelText;
+      labelText = "" + QString(xLabel.c_str()) + " " + labelText;
     }
-    labelText = QString(node->GetName().c_str()) + "\n" + labelText;
   }
+  
+  this->UpdateTextAnnotations(labelText.toStdString());
 
+  // set GUI settings to the selected nodes
+  ApplySettingsToNodes(nodesToProcess);
+
+  // process all nodes
   for (mitk::DataNode::Pointer dataNode : *nodesToProcess)
     if (m2::SpectrumImage::Pointer data = dynamic_cast<m2::SpectrumImage *>(dataNode->GetData()))
       OnGenerateImageData(dataNode, xRangeCenter, xRangeTol, false); // do not emit
@@ -666,25 +934,13 @@ void m2Data::OnRenderSpectrumImages(double min, double max)
 
 void m2Data::UpdateTextAnnotations(std::string text)
 {
-  static const std::array<std::string, 3> windownames = {"axial", "sagittal", "coronal"};
-  if (m_TextAnnotations.size() != 3)
+  if (auto mainWindow = qobject_cast<QMainWindow *>(QApplication::activeWindow()))
   {
-    m_TextAnnotations.clear();
-    for (int i = 0; i < 3; i++)
-    {
-      m_TextAnnotations.push_back(mitk::TextAnnotation2D::New());
-      auto renderer = GetRenderWindowPart()->GetQmitkRenderWindow(windownames[i].c_str())->GetRenderer();
-      mitk::LayoutAnnotationRenderer::AddAnnotation(m_TextAnnotations.back(), renderer);
-      m_TextAnnotations.back()->SetFontSize(15);
-      float color[] = {0.7, 0.7, 0.7};
-      m_TextAnnotations.back()->SetFontSize(20);
-
-      m_TextAnnotations.back()->SetColor(color);
+    
+    if (auto statusBar = mainWindow->statusBar())
+{
+      statusBar->showMessage(QString::fromStdString(text));
     }
-  }
-  for (auto anno : m_TextAnnotations)
-  {
-    anno->SetText(text);
   }
 }
 
@@ -731,8 +987,10 @@ void m2Data::UpdateLevelWindow(const mitk::DataNode *node)
     mitk::LevelWindow lw;
     node->GetLevelWindow(lw);
     lw.SetAuto(msImageBase);
-    const auto max = lw.GetRangeMax();
-    lw.SetWindowBounds(0, max);
+    if (m_Controls.CBUseFixedLevel->isChecked())
+    {
+      lw.SetLevelWindow(m_Controls.spnBxLevel->value(), m_Controls.spnBxWindow->value());
+    }
     const_cast<mitk::DataNode *>(node)->SetLevelWindow(lw);
   }
 }
@@ -748,14 +1006,15 @@ void m2Data::NodeAdded(const mitk::DataNode *node)
     // !! Primary initialization !!
     this->ApplySettingsToImage(data);
     data->InitializeImageAccess();
-    this->RequestRenderWindowUpdate();
+    // this->RequestRenderWindowUpdate();
 
     SpectrumImageNodeAdded(node);
-    // emit m2::UIUtils::Instance()->SpectrumImageNodeAdded(node);
-  }
-  else if (dynamic_cast<m2::IntervalVector *>(node->GetData()))
-  {
-    // emit m2::UIUtils::Instance()->SpectrumImageNodeAdded(node);
+    auto xs = data->GetXAxis();
+
+    if(m_Controls.spnBxMz->value() == 0)
+      this->OnGenerateImageData(xs[xs.size()/2], FROM_GUI);
+    else
+      this->OnGenerateImageData(m_Controls.spnBxMz->value(), FROM_GUI);
   }
 }
 
@@ -772,6 +1031,8 @@ void m2Data::OpenSlideImageNodeAdded(const mitk::DataNode *node)
       try
       {
         auto data = dialog->GetData();
+        auto mx = dialog->GetMirrorX();
+        auto my = dialog->GetMirrorY();
         // auto preview = dialog->GetPreviwData();
         // mitk::DataNode::Pointer parent = nullptr;
         // if (preview)
@@ -785,6 +1046,8 @@ void m2Data::OpenSlideImageNodeAdded(const mitk::DataNode *node)
         if (data.size() == 1)
         {
           auto filter = m2::SubdivideImage2DFilter::New();
+          filter->SetMirrorX(mx);
+          filter->SetMirrorY(my);
           filter->SetInput(data.back());
           filter->SetTileHeight((unsigned int)(1) << 13);
           filter->SetTileWidth((unsigned int)(1) << 13);
@@ -800,6 +1063,7 @@ void m2Data::OpenSlideImageNodeAdded(const mitk::DataNode *node)
             auto node = mitk::DataNode::New();
             node->SetData(I);
             node->SetName(name + "_tile_" + std::to_string(k));
+            node->SetVisibility(k < 2, nullptr);
             this->GetDataStorage()->Add(node);
             ++k;
           }
@@ -814,6 +1078,7 @@ void m2Data::OpenSlideImageNodeAdded(const mitk::DataNode *node)
             node->SetName(
               itksys::SystemTools::GetFilenameWithoutExtension(openSlideIOHelper->GetOpenSlideIO()->GetFileName()) +
               "_" + std::to_string(i++));
+            // node->SetVisibility(false, nullptr);
             this->GetDataStorage()->Add(node);
           }
         }
@@ -838,6 +1103,8 @@ void m2Data::FsmImageNodeAdded(const mitk::DataNode *)
 
 void m2Data::SpectrumImageNodeAdded(const mitk::DataNode *node)
 {
+  
+
   auto nodes = GetDataStorage()->GetAll();
   // resolve name-conflicts
   if (std::any_of(nodes->begin(),
@@ -860,6 +1127,9 @@ void m2Data::SpectrumImageNodeAdded(const mitk::DataNode *node)
   {
     // -------------- add data interactor --------------
 
+    std::string inputLocation;
+    node->GetStringProperty("MITK.IO.reader.inputlocation", inputLocation);
+
     auto interactor = m2::SpectrumImageDataInteractor::New();
     interactor->LoadStateMachine("PointSet.xml");
     interactor->SetEventConfig("PointSetConfig.xml");
@@ -872,11 +1142,12 @@ void m2Data::SpectrumImageNodeAdded(const mitk::DataNode *node)
     m2::DefaultNodeProperties(node);
 
     // -------------- add Mask to datastorage --------------
+    auto nodeName = itksys::SystemTools::GetFilenameWithoutLastExtension(inputLocation) + ".mask";
     auto helperNode = mitk::DataNode::New();
-    helperNode->SetName("MaskImage");
+    helperNode->SetName(nodeName);
     helperNode->SetVisibility(m_Controls.showMaskImages->isChecked());
     helperNode->SetData(spectrumImage->GetMaskImage());
-    helperNode->SetStringProperty("spectrum.image.type", "mask");
+    helperNode->SetStringProperty("m2aia.helper.image.name", "mask");
 
     // add hidden to DS
     helperNode->SetBoolProperty("helper object", true);
@@ -884,50 +1155,90 @@ void m2Data::SpectrumImageNodeAdded(const mitk::DataNode *node)
     // consideration of the check boxes
     emit m_Controls.showMaskImages->toggled(m_Controls.showMaskImages->isChecked());
 
-    // -------------- add Index to datastorage --------------
-    helperNode = mitk::DataNode::New();
-    helperNode->SetName("IndexImage");
-    helperNode->SetVisibility(m_Controls.showIndexImages->isChecked());
-    helperNode->SetData(spectrumImage->GetIndexImage());
-    helperNode->SetStringProperty("spectrum.image.type", "index");
-    // add hidden to DS
-    helperNode->SetBoolProperty("helper object", true);
-    this->GetDataStorage()->Add(helperNode, const_cast<mitk::DataNode *>(node));
-    // consideration of the check boxes
-    emit m_Controls.showIndexImages->toggled(m_Controls.showIndexImages->isChecked());
+    // -------------- add ShiftImage to datastorage --------------
+    if(spectrumImage->GetShiftImage()){
+      nodeName = itksys::SystemTools::GetFilenameWithoutLastExtension(inputLocation) + ".shift";
+      helperNode = mitk::DataNode::New();
+      helperNode->SetName("ShiftImage");
+      helperNode->SetVisibility(false);
+      helperNode->SetData(spectrumImage->GetShiftImage());
+      helperNode->SetStringProperty("m2aia.helper.image.name", "ShiftImage");
+      this->GetDataStorage()->Add(helperNode, const_cast<mitk::DataNode *>(node));
+    }
+
+    auto parentImage = dynamic_cast<const mitk::Image *>(node->GetData());
+
+    std::vector<std::string> suffixes = {".tSNE", ".PCA", ".UMAP"};
+    for (const auto &suffix : suffixes)
+    {
+      nodeName = itksys::SystemTools::GetFilenameWithoutLastExtension(inputLocation) + suffix;
+      auto fileName = itksys::SystemTools::GetFilenamePath(inputLocation) + "/" + nodeName + ".nrrd";
+      if (itksys::SystemTools::FileExists(fileName))
+      {
+        auto childData = mitk::IOUtil::Load(fileName)[0];
+        auto childImage = dynamic_cast<mitk::Image *>(childData.GetPointer());
+        m2::ImzMLImageIO::ValidateChildImage(childImage, parentImage);
+
+        helperNode = mitk::DataNode::New();
+        helperNode->SetName(nodeName);
+        helperNode->SetVisibility(false);
+        helperNode->SetData(childImage);
+        helperNode->SetStringProperty("m2aia.helper.image.name", (suffix.substr(1) + "Image").c_str());
+        this->GetDataStorage()->Add(helperNode, const_cast<mitk::DataNode *>(node));
+      }
+    }
 
     // -------------- add Normalization to datastorage --------------
     for (auto type : m2::NormalizationStrategyTypeList)
     {
-      if (type == m2::NormalizationStrategyType::None)
-        continue;
+      auto image = spectrumImage->GetNormalizationImage(type);
+      auto name = node->GetName() + "." + m2::to_string(type);
 
       helperNode = mitk::DataNode::New();
-      helperNode->SetName("NormalizationImage" + m2::to_string(type));
-      helperNode->SetStringProperty("spectrum.image.type", ("normalization " + m2::to_string(type)).c_str());    
-      
-      // here we add only the template images
-      // initialization is done by UI interaction
-      auto image = spectrumImage->GetNormalizationImage(type);
+      helperNode->SetName(node->GetName() + "." + m2::to_string(type));
+      helperNode->SetBoolProperty("binary", false);
+      helperNode->SetBoolProperty("helper object", true);
       helperNode->SetData(image); 
+      helperNode->SetStringProperty("m2aia.helper.image.normalization.name", name.c_str());
 
       // add hidden to DS
-      helperNode->SetBoolProperty("helper object", true);
       this->GetDataStorage()->Add(helperNode, const_cast<mitk::DataNode *>(node));
-
-      // clear the image data if not already initialized
-      if(image && !spectrumImage->GetNormalizationImageStatus(type)){
-        auto imageSize = image->GetDimensions();
-        mitk::ImagePixelWriteAccessor<m2::NormImagePixelType, 3> acc(image);
-        std::memset(acc.GetData(), 0, imageSize[0] * imageSize[1] * imageSize[2] * sizeof(m2::NormImagePixelType));
-      }
       
-   
 
-      // consideration of the check boxes
-      auto checkBox = m_Controls.settings->findChild<QCheckBox *>(("ckBoxNormalizationImage" + m2::to_string(type)).c_str());
+      if(auto checkBox = m_Controls.settings->findChild<QCheckBox *>(("ckBoxNormalizationImage" + m2::to_string(type)).c_str()))
       emit checkBox->toggled(checkBox->isChecked());
     }
+    
+    nodeName = itksys::SystemTools::GetFilenameWithoutLastExtension(inputLocation) + ".def";
+    auto fileName = itksys::SystemTools::GetFilenamePath(inputLocation) + "/" + nodeName + ".nrrd";
+    if(itksys::SystemTools::FileExists(fileName)){
+      auto images = mitk::IOUtil::Load(fileName);
+      std::string index;
+      auto metaData = images[0]->GetMetaDataDictionary();
+      itk::ExposeMetaData<std::string>(metaData, "m2aia.stack.index", index);
+      helperNode = mitk::DataNode::New();
+      helperNode->SetName(nodeName);
+      helperNode->SetVisibility(true);
+      helperNode->SetData(images[0]);
+      helperNode->SetStringProperty("m2aia.helper.image.name", "defImage");
+      this->GetDataStorage()->Add(helperNode, const_cast<mitk::DataNode *>(node));
+    }
+
+
+    // -------------- add Index to datastorage --------------
+    nodeName = itksys::SystemTools::GetFilenameWithoutLastExtension(inputLocation) + ".index";
+    helperNode = mitk::DataNode::New();
+    helperNode->SetName(nodeName);
+    helperNode->SetVisibility(m_Controls.showIndexImages->isChecked());
+    helperNode->SetData(spectrumImage->GetIndexImage());
+    helperNode->SetStringProperty("m2aia.helper.image.name", "index");
+    helperNode->SetBoolProperty("binary", false);
+    // add hidden to DS
+    helperNode->SetBoolProperty("helper object", true);
+    this->GetDataStorage()->Add(helperNode, const_cast<mitk::DataNode *>(node));
+    emit m_Controls.showIndexImages->toggled(m_Controls.showIndexImages->isChecked());
+
+   
 
     // -------------- add Spectra to datastorage --------------
     // color for plots in spectrum view
@@ -944,25 +1255,25 @@ void m2Data::SpectrumImageNodeAdded(const mitk::DataNode *node)
       auto intervals = m2::IntervalVector::New();
       intervals->SetType(type);
       intervals->SetInfo(info);
-      intervals->SetProperty("spectrum.xaxis.count", mitk::IntProperty::New(xs.size()));
+      intervals->SetProperty("m2aia.helper.spectrum.xaxis.count", mitk::IntProperty::New(xs.size()));
 
       if (auto image = dynamic_cast<m2::SpectrumImage *>(node->GetData()))
-        intervals->SetProperty("spectrum.pixel.count", mitk::IntProperty::New(image->GetNumberOfValidPixels()));
+        intervals->SetProperty("m2aia.image.pixel.count", mitk::IntProperty::New(image->GetNumberOfValidPixels()));
 
       using namespace std;
       auto &i = intervals->GetIntervals();
       transform(begin(xs), end(xs), begin(ys), back_inserter(i), [](auto &a, auto &b) { return m2::Interval(a, b); });
+      
       intervalsNode->SetData(intervals);
-
       intervalsNode->SetName(name);
-      intervalsNode->SetVisibility(checkState);
+      intervalsNode->SetVisibility(this->Controls()->visibleOnInitialization->isChecked() && !m_ResetPreventDataStorageOverload.isRunning());
       intervalsNode->SetBoolProperty("helper object", !checkState);
       m2::CopyNodeProperties(node, intervalsNode);
       if ((unsigned int)(type) & (unsigned int)(m2::SpectrumFormat::Centroid))
         intervalsNode->SetOpacity(1 - alpha);
-
-      this->GetDataStorage()->Add(intervalsNode, const_cast<mitk::DataNode *>(node));
       intervalsNode->Modified();
+      this->GetDataStorage()->Add(intervalsNode, const_cast<mitk::DataNode *>(node));     
+    
     };
 
     const auto &xs = spectrumImage->GetXAxis();
@@ -970,19 +1281,19 @@ void m2Data::SpectrumImageNodeAdded(const mitk::DataNode *node)
     if (spectrumImage->GetSpectrumType().Format == m2::SpectrumFormat::ContinuousProfile ||
         spectrumImage->GetSpectrumType().Format == m2::SpectrumFormat::ProcessedProfile)
     {
-      AddSpectrum("MaxSpectrum (" + node->GetName() + ")",
+      AddSpectrum(node->GetName() + ".max_spectrum",
                   m2::SpectrumFormat::Profile,
                   "overview.max",
                   xs,
                   spectrumImage->GetSkylineSpectrum(),
                   m_Controls.showMaxSpectrum->isChecked());
-      AddSpectrum("MeanSpectrum (" + node->GetName() + ")",
+      AddSpectrum(node->GetName() + ".mean_spectrum",
                   m2::SpectrumFormat::Profile,
                   "overview.mean",
                   xs,
                   spectrumImage->GetMeanSpectrum(),
                   m_Controls.showMeanSpectrum->isChecked());
-      AddSpectrum("SingleSpectrum (" + node->GetName() + ")",
+      AddSpectrum(node->GetName() + ".single_spectrum",
                   m2::SpectrumFormat::Profile,
                   "overview.single",
                   {},
@@ -991,14 +1302,14 @@ void m2Data::SpectrumImageNodeAdded(const mitk::DataNode *node)
     }
     else
     {
-      AddSpectrum("CentroidSpectrum (" + node->GetName() + ")",
+      AddSpectrum(node->GetName() + ".centroids",
                   m2::SpectrumFormat::Centroid,
                   "overview.centroids",
                   xs,
                   spectrumImage->GetMeanSpectrum(),
                   m_Controls.showCentroidSpectrum->isChecked(),
                   0.5);
-      AddSpectrum("SingleSpectrum (" + node->GetName() + ")",
+      AddSpectrum(node->GetName() + ".single_spectrum",
                   m2::SpectrumFormat::Centroid,
                   "overview.single",
                   {},
@@ -1006,6 +1317,10 @@ void m2Data::SpectrumImageNodeAdded(const mitk::DataNode *node)
                   m_Controls.showSingleSpectrum->isChecked(),
                   0.5);
     }
+
+    m_ResetPreventDataStorageOverload.cancel();
+    m_ResetPreventDataStorageOverload.setFuture(QtConcurrent::run([](){
+    std::this_thread::sleep_for(std::chrono::milliseconds(3000));}));
   }
 }
 

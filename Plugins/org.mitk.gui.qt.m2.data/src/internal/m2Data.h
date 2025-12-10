@@ -24,8 +24,8 @@ See LICENSE.txt or https://www.github.com/jtfcordes/m2aia for details.
 
 #include <m2UIUtils.h>
 
-#include <QThreadPool>
-
+// #include <QThreadPool>
+#include <QtConcurrent>
 /**
   \brief DataView
 
@@ -88,12 +88,17 @@ public:
   void InitSmoothingControls();
   void InitToleranceControls();
   void InitBaselineCorrectionControls();
+  void InitImageNormalizationControls();
+  void InitImageSmoothingControls();
   
   
 
 public slots:
   void OnCreateNextImage();
   void OnCreatePrevImage();
+  void OnCreatePrevPeakImage();
+  void OnCreateNextPeakImage();
+  void OnCreateShiftMap();
   void OnIncreaseTolerance();
   void OnDecreaseTolerance();
   void OnRenderSpectrumImages(double min, double max);
@@ -105,6 +110,8 @@ public slots:
   m2::RangePoolingStrategyType GuiToRangePoolingStrategyType();  
   m2::SmoothingType GuiToSmoothingStrategyType();  
   m2::BaselineCorrectionType GuiToBaselineCorrectionStrategyType();
+  m2::ImageNormalizationStrategyType GuiToImageNormalizationStrategyType();
+  m2::ImageSmoothingStrategyType GuiToImageSmoothingStrategyType();
   
 
 signals:
@@ -113,6 +120,7 @@ signals:
 protected:
   void CreateQtPartControl(QWidget *parent) override;
   void NodeAdded(const mitk::DataNode *node) override;
+  QFutureWatcher<void> m_ResetPreventDataStorageOverload;
   void NodeRemoved(const mitk::DataNode *node) override;
   void SetFocus() override {}
 
@@ -142,6 +150,7 @@ protected:
 
   QThreadPool m_pool;
   m2::SpectrumType m_CurrentOverviewSpectrumType = m2::SpectrumType::Maximum;
+
 
   // m2::IonImageReference::Pointer m_IonImageReference;
   /*!

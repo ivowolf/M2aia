@@ -30,8 +30,9 @@ See LICENSE.txt or https://www.github.com/jtfcordes/m2aia for details.
 #include "QmitkDataNodeTextureInterpolationAction.h"
 #include "QmitkDataNodeExportComponentAction.h"
 #include "QmitkDataNodeConvertPixelTypeAction.h"
-#include "QmitkDataNodeSliceWiseNormalizationAction.h"
+#include "QmitkDataNodeConvertToRGBImageAction.h"
 #include "QmitkDataNodeReimportImageAction.h"
+#include "QmitkDataNodeCreateLabelSetRegionSpectraAction.h"
 
 #include <m2UIUtils.h>
 #include <m2IntervalVector.h>
@@ -68,19 +69,22 @@ void org_mitk_gui_qt_m2_common_Activator::start(ctkPluginContext *context)
   descriptorManager->AddDescriptor(new QmitkNodeDescriptor(
     tr("SpectrumImageStack"), QString(":/QmitkM2aiaCore/SpectrumImage_48.png"), spectrumImageStackDescriptorPredicate, this));
 
-  auto desc = descriptorManager->GetDescriptor("SpectrumImage");
+  auto desc = descriptorManager->GetDescriptor("Image");
+  desc->AddAction(new QmitkDataNodeConvertPixelTypeAction(), false);
+
+  desc = descriptorManager->GetDescriptor("SpectrumImage");
   desc->AddAction(new QmitkDataNodeConvertPixelTypeAction(), false);
   desc->AddAction(new QmitkDataNodePlotColorAction(), false);
   desc->AddAction(new QmitkDataNodeReimportImageAction(), false);
+  desc->AddAction(new QmitkDataNodeCreateLabelSetRegionSpectraAction(), false);
 
-  desc = descriptorManager->GetDescriptor("SpectrumImageStack");
-  desc->AddAction(new QmitkDataNodeSliceWiseNormalizationAction(), false);
+  // desc = descriptorManager->GetDescriptor("SpectrumImageStack");
+  // desc->AddAction(new QmitkDataNodeSliceWiseNormalizationAction(), false);
   
-
   desc = descriptorManager->GetDescriptor("MultiComponentImage");
   desc->AddAction(new QmitkDataNodeExportComponentAction(), false);
+  desc->AddAction(new QmitkDataNodeConvertToRGBImageAction(), false);
 
-  
   descriptorManager->AddDescriptor(new QmitkNodeDescriptor(
     tr("IntervalVector"), QString(":/QmitkM2aiaCore/Spectrum_48.png"), mitk::TNodePredicateDataType<m2::IntervalVector>::New(), this));
   desc = descriptorManager->GetDescriptor("IntervalVector");

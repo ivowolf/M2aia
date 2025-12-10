@@ -65,7 +65,7 @@ void QmitkPeakLearningView::EnableWidgets(bool enable)
 
 void QmitkPeakLearningView::OnStartDockerProcessing()
 {
-  if (mitk::DockerHelper::CheckDocker())
+  if (mitk::DockerHelper::CanRunDocker())
   {
     for (auto node : m_Controls.imageSelection->GetSelectedNodes())
     {
@@ -85,7 +85,7 @@ void QmitkPeakLearningView::OnStartDockerProcessing()
           mitk::ProgressBar::GetInstance()->AddStepsToDo(3);
 
           mitk::DockerHelper helper("ghcr.io/m2aia/msipl:latest");
-          m2::SpectrumImageHelper::AddArguments(helper);
+          m2::SpectrumImageHelper::AddArguments(helper.GetAdditionalApplicationArguments());
           
           helper.EnableGPUs(true);
           helper.EnableAutoRemoveContainer(true);

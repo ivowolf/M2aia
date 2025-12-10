@@ -34,8 +34,6 @@ namespace m2
    * Writes/Reads ImzML images
    * @ingroup Process
    */
-  // The export macro should be removed. Currently, the unit
-  // tests directly instantiate this class.
 
   using namespace std::string_literals;
   class M2AIACORE_EXPORT ImzMLImageIO : public mitk::AbstractFileIO
@@ -85,15 +83,72 @@ namespace m2
     std::string GetImzMLOutputPath() const;
     void WriteContinuousProfile(m2::ImzMLSpectrumImage::SpectrumVectorType & spectra) const;
     void WriteContinuousCentroid(m2::ImzMLSpectrumImage::SpectrumVectorType & spectra) const;
+    void WriteContinuousCentroid3DStack(const m2::SpectrumImageStack *) const;
     void WriteProcessedProfile(m2::ImzMLSpectrumImage::SpectrumVectorType & spectra) const;
     void WriteProcessedCentroid(m2::ImzMLSpectrumImage::SpectrumVectorType & spectra) const;
 
+    static inline bool CheckDimensions(mitk::Image * parent, const mitk::Image * child){
+      auto dims_a = parent->GetDimensions();
+      auto dims_b = child->GetDimensions();
+      return mitk::Equal(dims_a[0], dims_b[0]) && mitk::Equal(dims_a[1], dims_b[1]) && mitk::Equal(dims_a[2], dims_b[2]);
+    }
+
+    static inline bool CheckSpacing(mitk::Image * parent, const mitk::Image * child){
+      auto spacing_a = parent->GetGeometry()->GetSpacing();
+      auto spacing_b = child->GetGeometry()->GetSpacing();
+      return mitk::Equal(spacing_a[0], spacing_b[0]) && mitk::Equal(spacing_a[1], spacing_b[1]) && mitk::Equal(spacing_a[2], spacing_b[2]);
+    }
+
+    static inline bool CheckOrigin(mitk::Image * parent, const mitk::Image * child){
+      auto origin_a = parent->GetGeometry()->GetOrigin();
+      auto origin_b = child->GetGeometry()->GetOrigin();
+      return mitk::Equal(origin_a[0], origin_b[0]) && mitk::Equal(origin_a[1], origin_b[1]) && mitk::Equal(origin_a[2], origin_b[2]);
+    }
+
+    static inline bool ValidateChildImage(mitk::Image * parent, const mitk::Image * child)
+    {
+      if(!parent || !child){
+        MITK_ERROR << "Parent or child is null";
+        return false;
+      }
+      
+      {
+        auto prop = child->GetProperty("path");
+  
+        if(CheckDimensions(parent, child)){
+          if (!CheckSpacing(parent, child))
+          {
+            MITK_WARN << "Image spacing of [" << prop->GetValueAsString() << "] is not equal to the spacing definen in ["
+            << parent->GetProperty("path")->GetValueAsString() << "]";
+            parent->GetGeometry()->SetSpacing(child->GetGeometry()->GetSpacing());
+            MITK_WARN << "Image spacing was set to the spacing defined in the imzML data.";
+          }
+          
+          if (!CheckOrigin(parent, child))
+          {
+            MITK_WARN << "Image origin of [" << prop->GetValueAsString() << "] is not equal to the origin definen in ["
+            << parent->GetProperty("path")->GetValueAsString() << "]";
+            parent->GetGeometry()->SetOrigin(child->GetGeometry()->GetOrigin());
+            MITK_WARN << "Image origin was set to the origin defined in the imzML data.";
+          }
+  
+          return true;
+        }else{
+          MITK_WARN << "Image dimension of [" << prop->GetValueAsString() << "] is not equal to the dimension definen in ["
+          << parent->GetProperty("path")->GetValueAsString() << "]";
+          MITK_ERROR << "The mask image seems to be not equal to the loaded data."
+          "Make sure to use the correct mask image.";
+          return false;
+        }
+      }
+    }
   private:
     void EvaluateSpectrumFormatType(m2::SpectrumImage *);
     void LoadAssociatedData(m2::ImzMLSpectrumImage *);
     ImzMLImageIO *IOClone() const override;
 
-    std::string RemoveExtensionFromPath(std::string path);
+ 
+    // std::string RemoveExtensionFromPath(std::string path);
 
     m2::IntervalVector::Pointer m_Intervals;
     m2::NumericType m_DataTypeXAxis = m2::NumericType::Float;
@@ -185,10 +240,10 @@ namespace m2
       "unitCvRef=\"UO\" unitAccession=\"UO:0000017\" unitName=\"micrometer\"/>\n"
       "<cvParam cvRef=\"IMS\" accession=\"IMS:1000047\" name=\"pixel size y\" value=\"{pixel size y}\" "
       "unitCvRef=\"UO\" unitAccession=\"UO:0000017\" unitName=\"micrometer\"/>\n"
-      "{#absolute position offset x}<cvParam accession=\"IMS:1000053\" cvRef=\"IMS\" name=\"absolute position offset x\" value=\"{origin "
-      "x}\" unitCvRef=\"UO\" unitAccession=\"UO:0000017\" unitName=\"micrometer\"/>\n{/absolute position offset x}"
-      "{#absolute position offset y}<cvParam accession=\"IMS:1000054\" cvRef=\"IMS\" name=\"absolute position offset y\" value=\"{origin "
-      "y}\" unitCvRef=\"UO\" unitAccession=\"UO:0000017\" unitName=\"micrometer\"/>\n{/absolute position offset x}"
+      "<cvParam cvRef=\"IMS\" accession=\"IMS:1000053\" name=\"absolute position offset x\" value=\"{origin x}\" "
+      "unitCvRef=\"UO\" unitAccession=\"UO:0000017\" unitName=\"micrometer\"/>\n"
+      "<cvParam cvRef=\"IMS\" accession=\"IMS:1000054\" name=\"absolute position offset y\" value=\"{origin y}\" "
+      "unitCvRef=\"UO\" unitAccession=\"UO:0000017\" unitName=\"micrometer\"/>\n"
       "</scanSettings>\n"
       "</scanSettingsList>\n"
       "<instrumentConfigurationList count=\"1\">\n"

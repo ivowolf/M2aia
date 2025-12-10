@@ -13,11 +13,10 @@
 
   <extension point="org.blueberry.ui.perspectives">
     <perspective id="org.mitk.m2.application.perspectives.spectrumimaging"
-      name="Spectrum Imaging Perspective"
-      class="QmitkSpectrumImagingPerspective"
+      name="M2 Perspective"
+      class="Qm2Perspective"
       icon="resources/perspectives/icon.png"/>
   </extension>
 
 
 </plugin>
-
